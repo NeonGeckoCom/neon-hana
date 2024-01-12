@@ -1,0 +1,5 @@
+pyyaml>=5.4,<7.0
+fastapi~=0.95
+uvicorn~=0.25
+pydantic~=2.5
+neon_mq_connector~=0.7
