@@ -24,38 +24,45 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import FastAPI
-from typing import Union
+from fastapi import FastAPI, Depends
 
+from diana_services_api.schema.auth_requests import *
 from diana_services_api.schema.api_requests import *
 from diana_services_api.schema.api_responses import *
 from diana_services_api.mq_service_api import MQServiceManager
+from diana_services_api.auth.client_manager import ClientManager, JWTBearer
 
 
 def create_app():
     mq_connector = MQServiceManager()
+    client_manager = ClientManager()
+    jwt_bearer = JWTBearer(client_manager)
     app = FastAPI()
 
-    @app.post("/proxy/weather")
+    @app.post("/auth/login")
+    async def check_login(request: AuthenticationRequest) -> AuthenticationResponse:
+        return client_manager.check_auth_request(**dict(request))
+
+    @app.post("/proxy/weather", dependencies=[Depends(jwt_bearer)])
     async def api_proxy_weather(query: WeatherAPIRequest) -> WeatherAPIOnecallResponse:
         return mq_connector.query_api_proxy("open_weather_map", dict(query))
 
-    @app.post("/proxy/stock/symbol")
+    @app.post("/proxy/stock/symbol", dependencies=[Depends(jwt_bearer)])
     async def api_proxy_stock_symbol(query: StockAPISymbolRequest) -> StockAPISearchResponse:
         return mq_connector.query_api_proxy("alpha_vantage",
                                             {**dict(query),
                                              **{"api": "symbol"}})
 
-    @app.post("/proxy/stock/quote")
+    @app.post("/proxy/stock/quote", dependencies=[Depends(jwt_bearer)])
     async def api_proxy_stock_quote(query: StockAPIQuoteRequest) -> StockAPIQuoteResponse:
         return mq_connector.query_api_proxy("alpha_vantage",
                                             {**dict(query), **{"api": "quote"}})
 
-    @app.post("/proxy/geolocation/geocode")
+    @app.post("/proxy/geolocation/geocode", dependencies=[Depends(jwt_bearer)])
     async def api_proxy_geolocation(query: GeoAPIRequest) -> GeoAPIGeocodeResponse:
         return mq_connector.query_api_proxy("map_maker", dict(query))
 
-    @app.post("/proxy/geolocation/reverse")
+    @app.post("/proxy/geolocation/reverse", dependencies=[Depends(jwt_bearer)])
     async def api_proxy_geolocation(query: GeoAPIReverseRequest) -> GeoAPIReverseResponse:
         return mq_connector.query_api_proxy("map_maker", dict(query))
     return app
