@@ -25,6 +25,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
+from typing import Optional, Dict, Any
 
 from fastapi import HTTPException
 
@@ -38,6 +39,9 @@ class APIError(HTTPException):
 
 
 class MQServiceManager:
+    def __init__(self):
+        self.mq_default_timeout = 10
+
     def _validate_api_proxy_response(self, response: dict):
         if response['status_code'] == 200:
             try:
@@ -63,13 +67,44 @@ class MQServiceManager:
                                    "neon_api_output", timeout)
         return self._validate_api_proxy_response(response)
 
-    def parse_ccl_script(self, script_text: str, metadata: dict = None,
-                         timeout: int = 30):
-        response = send_mq_request("/neon_script_parser",
-                                   {"text": script_text, "metadata": metadata},
-                                   "neon_script_parser_input",
-                                   "neon_script_parser_output", timeout)
-        return response
+    def send_email(self, recipient: str, subject: str, body: str,
+                   attachments: Optional[Dict[str, str]]):
+        request_data = {"recipient": recipient,
+                        "subject": subject,
+                        "body": body,
+                        "attachments": attachments}
+        response = send_mq_request("/neon_emails", request_data,
+                                   "neon_emails_input")
+        if not response.get("success"):
+            raise APIError(status_code=500, detail="Email failed to send")
+
+    def upload_metric(self, metric_name: str, timestamp: str,
+                      metric_data: Dict[str, Any]):
+        metric_data = {**{"name": metric_name, "timestamp": timestamp},
+                       **metric_data}
+        send_mq_request("/neon_metrics", metric_data, "neon_metrics_input",
+                        expect_response=False)
+
+    def parse_ccl_script(self, script: str, metadata: Dict[str, Any]):
+        try:
+            response = send_mq_request("/neon_script_parser",
+                                       {"text": script, "metadata": metadata},
+                                       "neon_script_parser_input",
+                                       "neon_script_parser_output",
+                                       self.mq_default_timeout)
+            return {"ncs": response['parsed_file']}
+        except TimeoutError as e:
+            raise APIError(status_code=500, detail=repr(e))
+
+    def get_coupons(self):
+        try:
+            response = send_mq_request("/neon_coupons", {},
+                                       "neon_coupons_input",
+                                       "neon_coupons_output",
+                                       self.mq_default_timeout)
+            return response
+        except TimeoutError as e:
+            raise APIError(status_code=500, detail=repr(e))
 
     def get_stt(self, b64_audio: str, lang: str, timeout: int = 20):
         request_data = {"msg_type": "neon.get_stt",

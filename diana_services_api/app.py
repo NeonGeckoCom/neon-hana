@@ -70,4 +70,20 @@ def create_app():
     async def api_proxy_wolframalpha(query: WolframAlphaAPIRequest) -> WolframAlphaAPIResponse:
         return mq_connector.query_api_proxy("wolfram_alpha", dict(query))
 
+    @app.post("/email", dependencies=[Depends(jwt_bearer)])
+    async def email_send(request: SendEmailRequest):
+        mq_connector.send_email(**dict(request))
+
+    @app.post("/metrics/upload", dependencies=[Depends(jwt_bearer)])
+    async def upload_metric(metric: UploadMetricRequest):
+        mq_connector.upload_metric(**dict(metric))
+
+    @app.post("/ccl/parse", dependencies=[Depends(jwt_bearer)])
+    async def parse_nct_script(script: ParseScriptRequest) -> ScriptParserResponse:
+        return mq_connector.parse_ccl_script(**dict(script))
+
+    @app.post("/coupons", dependencies=[Depends(jwt_bearer)])
+    async def get_coupons() -> CouponsResponse:
+        return mq_connector.get_coupons()
+
     return app
