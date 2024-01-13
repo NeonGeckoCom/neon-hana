@@ -30,10 +30,14 @@ from diana_services_api.app.dependencies import client_manager, jwt_bearer, mq_c
 from diana_services_api.app.routers.api_proxy import proxy_route
 from diana_services_api.app.routers.mq_backend import mq_route
 from diana_services_api.app.routers.auth import auth_route
+from diana_services_api.version import __version__
 
 
-def create_app():
-    app = FastAPI()
+def create_app(config: dict):
+    title = config.get('title') or "Diana Services API"
+    summary = config.get('summary') or "HTTP component of the Device Independent API for Neon Applications (DIANA)"
+    version = __version__
+    app = FastAPI(title=title, summary=summary, version=version)
     app.include_router(auth_route)
     app.include_router(proxy_route)
     app.include_router(mq_route)
