@@ -30,7 +30,7 @@ from uuid import uuid4
 
 class TestClientManager(unittest.TestCase):
     from diana_services_api.auth.client_manager import ClientManager
-    client_manager = ClientManager()
+    client_manager = ClientManager({})
 
     def test_check_auth_request(self):
         client_1 = str(uuid4())

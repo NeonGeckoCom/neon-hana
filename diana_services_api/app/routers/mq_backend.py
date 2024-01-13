@@ -24,15 +24,30 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import uvicorn
-
-from diana_services_api.app import create_app
-
-
-def main():
-    app = create_app()
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+from fastapi import APIRouter, Depends
+from diana_services_api.schema.api_requests import *
+from diana_services_api.schema.api_responses import *
+from diana_services_api.app.dependencies import jwt_bearer, mq_connector
 
 
-if __name__ == "__main__":
-    main()
+mq_route = APIRouter(tags=["backend"], dependencies=[Depends(jwt_bearer)])
+
+
+@mq_route.post("/email", dependencies=[Depends(jwt_bearer)])
+async def email_send(request: SendEmailRequest):
+    mq_connector.send_email(**dict(request))
+
+
+@mq_route.post("/metrics/upload", dependencies=[Depends(jwt_bearer)])
+async def upload_metric(metric: UploadMetricRequest):
+    mq_connector.upload_metric(**dict(metric))
+
+
+@mq_route.post("/ccl/parse", dependencies=[Depends(jwt_bearer)])
+async def parse_nct_script(script: ParseScriptRequest) -> ScriptParserResponse:
+    return mq_connector.parse_ccl_script(**dict(script))
+
+
+@mq_route.post("/coupons", dependencies=[Depends(jwt_bearer)])
+async def get_coupons() -> CouponsResponse:
+    return mq_connector.get_coupons()

@@ -28,20 +28,21 @@ import jwt
 
 from time import time
 from typing import Dict, Optional
-
 from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import DecodeError
 
 
 class ClientManager:
-    def __init__(self):
+    def __init__(self, config: dict):
         self.authorized_clients: Dict[str, dict] = dict()
-        # TODO: secrets and expirations from config
-        self._access_token_lifetime = 3600 * 24  # 1 day
-        self._refresh_token_lifetime = 3600 * 24 * 7  # 1 week
-        self._access_secret = 'a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b'
-        self._refresh_secret = '833d369ac73d883123743a44b4a7fe21203cffc956f4c8a99be6e71aafa8e1aa'
+        self._access_token_lifetime = config.get("access_token_ttl", 3600 * 24)
+        self._refresh_token_lifetime = config.get("refresh_token_ttl",
+                                                  3600 * 24 * 7)
+        self._access_secret = config.get("access_token_secret",
+                                         'a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b')
+        self._refresh_secret = config.get("refresh_token_secret",
+                                          '833d369ac73d883123743a44b4a7fe21203cffc956f4c8a99be6e71aafa8e1aa')
         self._jwt_algo = "HS256"
 
     def check_auth_request(self, client_id: str, username: str,
@@ -82,14 +83,14 @@ class ClientManager:
         return False
 
 
-class JWTBearer(HTTPBearer):
+class UserTokenAuth(HTTPBearer):
     def __init__(self, client_manager: ClientManager):
         HTTPBearer.__init__(self)
         self.client_manager = client_manager
 
     async def __call__(self, request: Request):
         credentials: HTTPAuthorizationCredentials = \
-            await super(JWTBearer, self).__call__(request)
+            await HTTPBearer.__call__(self, request)
         if credentials:
             if not credentials.scheme == "Bearer":
                 raise HTTPException(status_code=403,
