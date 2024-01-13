@@ -91,14 +91,25 @@ class WolframAlphaAPIRequest(BaseModel):
     lat: float
     lon: float
     query: str
-
-
-class ParseScriptRequest(BaseModel):
-    script: str
-
-
-class GetCouponsRequest(BaseModel):
-    pass
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "api": "spoken",
+                "lat": 47.6815,
+                "lon": -122.2087,
+                "query": "how far away is the moon"
+            }, {
+                "api": "short",
+                "lat": 47.6815,
+                "lon": -122.2087,
+                "query": "how far away is London"
+            }, {
+                "api": "full",
+                "lat": 47.6815,
+                "lon": -122.2087,
+                "query": "what is the derivative of sin(x)"
+            }
+            ]}}
 
 
 class SendEmailRequest(BaseModel):
@@ -111,3 +122,11 @@ class SendEmailRequest(BaseModel):
 class UploadMetricRequest(BaseModel):
     metric_name: str
     metric_data: str
+
+
+class ParseScriptRequest(BaseModel):
+    script: str
+
+
+class GetCouponsRequest(BaseModel):
+    pass

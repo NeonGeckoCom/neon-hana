@@ -40,13 +40,19 @@ class APIError(HTTPException):
 class MQServiceManager:
     def _validate_api_proxy_response(self, response: dict):
         if response['status_code'] == 200:
-            resp = json.loads(response['content'])
-            if isinstance(resp, dict):
-                return resp
-            # Reverse Geocode API returns a list; reformat that to a dict
-            if isinstance(resp, list):
-                return {**resp.pop(0),
-                        **{"alternate_results": resp}}
+            try:
+                resp = json.loads(response['content'])
+                if isinstance(resp, dict):
+                    return resp
+                # Reverse Geocode API returns a list; reformat that to a dict
+                if isinstance(resp, list):
+                    return {**resp.pop(0),
+                            **{"alternate_results": resp}}
+            except json.JSONDecodeError:
+                resp = response['content']
+            # Wolfram Spoken API returns a string; reformat that to a dict
+            if isinstance(resp, str):
+                return {"answer": resp}
         code = response['status_code'] if response['status_code'] > 200 else 500
         raise APIError(status_code=code, detail=response['content'])
 
@@ -56,7 +62,6 @@ class MQServiceManager:
         response = send_mq_request("/neon_api", query_params, "neon_api_input",
                                    "neon_api_output", timeout)
         return self._validate_api_proxy_response(response)
-
 
     def parse_ccl_script(self, script_text: str, metadata: dict = None,
                          timeout: int = 30):

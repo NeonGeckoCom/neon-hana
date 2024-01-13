@@ -1959,3 +1959,18 @@ class GeoAPIReverseResponse(BaseModel):
                         "-122.2086379"
                     ]
                 }]}}
+
+
+class WolframAlphaAPIResponse(BaseModel):
+    answer: str
+    model_config = {
+        "extra": "allow",
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "answer": "The distance from Earth to the Moon at 4:29 P.M. Pacific Standard Time, Friday, January 12, 2024 is about 225192 miles"
+                }, {
+                    "answer": "about 5378 miles"
+                }, {
+                    "answer": "<?xml version='1.0' encoding='UTF-8'?>\n<queryresult success='false'\n    error='true'\n    xml:space='preserve'\n    numpods='0'\n    datatypes=''\n    timedout=''\n    timedoutpods=''\n    timing='0.015'\n    parsetiming='0.'\n    parsetimedout='false'\n    recalculate=''\n    id=''\n    parseidserver='15'\n    host='https://www6b3.wolframalpha.com'\n    server='15'\n    related=''\n    version='2.6'\n    inputstring=''>\n <error>\n  <code>1000</code>\n  <msg>input parameter not present in query</msg>\n </error>\n</queryresult>"
+                }]}}

@@ -65,4 +65,9 @@ def create_app():
     @app.post("/proxy/geolocation/reverse", dependencies=[Depends(jwt_bearer)])
     async def api_proxy_geolocation(query: GeoAPIReverseRequest) -> GeoAPIReverseResponse:
         return mq_connector.query_api_proxy("map_maker", dict(query))
+
+    @app.post("/proxy/wolframalpha", dependencies=[Depends(jwt_bearer)])
+    async def api_proxy_wolframalpha(query: WolframAlphaAPIRequest) -> WolframAlphaAPIResponse:
+        return mq_connector.query_api_proxy("wolfram_alpha", dict(query))
+
     return app
