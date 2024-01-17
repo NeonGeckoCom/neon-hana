@@ -27,7 +27,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from setuptools import setup, find_packages
-from os import getenv, path, walk
+from os import getenv, path
 
 BASE_PATH = path.abspath(path.dirname(__file__))
 

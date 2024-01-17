@@ -39,10 +39,9 @@ class ClientManager:
         self._access_token_lifetime = config.get("access_token_ttl", 3600 * 24)
         self._refresh_token_lifetime = config.get("refresh_token_ttl",
                                                   3600 * 24 * 7)
-        self._access_secret = config.get("access_token_secret",
-                                         'a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b')
-        self._refresh_secret = config.get("refresh_token_secret",
-                                          '833d369ac73d883123743a44b4a7fe21203cffc956f4c8a99be6e71aafa8e1aa')
+        self._access_secret = config.get("access_token_secret")
+        self._refresh_secret = config.get("refresh_token_secret")
+        self._disable_auth = config.get("disable_auth")
         self._jwt_algo = "HS256"
 
     def check_auth_request(self, client_id: str, username: str,
@@ -69,6 +68,8 @@ class ClientManager:
         return auth
 
     def validate_auth(self, token: str) -> bool:
+        if self._disable_auth:
+            return True
         try:
             auth = jwt.decode(token, self._access_secret, self._jwt_algo)
             if auth['expire'] < time():

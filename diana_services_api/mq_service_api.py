@@ -42,7 +42,7 @@ class APIError(HTTPException):
 class MQServiceManager:
     def __init__(self, config: dict):
         self.mq_default_timeout = config.get('mq_default_timeout', 10)
-        self.mq_cliend_id = str(uuid4())
+        self.mq_cliend_id = config.get('mq_client_id') or str(uuid4())
 
     def _validate_api_proxy_response(self, response: dict):
         if response['status_code'] == 200:

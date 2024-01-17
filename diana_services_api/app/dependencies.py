@@ -24,10 +24,12 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from ovos_config.config import Configuration
+
 from diana_services_api.mq_service_api import MQServiceManager
 from diana_services_api.auth.client_manager import ClientManager, UserTokenAuth
 
-config = dict()  # TODO
+config = Configuration().get("diana_services_api") or dict()
 mq_connector = MQServiceManager(config)
 client_manager = ClientManager(config)
 jwt_bearer = UserTokenAuth(client_manager)

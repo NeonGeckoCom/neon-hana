@@ -26,14 +26,16 @@
 
 import uvicorn
 
+from ovos_config.config import Configuration
+
 from diana_services_api.app import create_app
 
 
 def main():
-    config = dict()
+    config = Configuration().get("diana_services_api")
     app = create_app(config)
-    # TODO: host, port from config
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host=config.get('server_host', "0.0.0.0"),
+                port=config.get('port', 8080))
 
 
 if __name__ == "__main__":

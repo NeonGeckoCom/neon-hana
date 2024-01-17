@@ -3,4 +3,5 @@ fastapi~=0.95
 uvicorn~=0.25
 pydantic~=2.5
 pyjwt~=2.8
-neon_mq_connector~=0.7
+neon-mq-connector~=0.7
+ovos-config~=0.0.12

@@ -35,8 +35,8 @@ from diana_services_api.version import __version__
 
 
 def create_app(config: dict):
-    title = config.get('title') or "Diana Services API"
-    summary = config.get('summary') or "HTTP component of the Device Independent API for Neon Applications (DIANA)"
+    title = config.get('fastapi_title') or "Diana Services API"
+    summary = config.get('fastapi_summary') or ""
     version = __version__
     app = FastAPI(title=title, summary=summary, version=version)
     app.include_router(auth_route)
