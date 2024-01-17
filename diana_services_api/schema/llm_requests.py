@@ -24,24 +24,31 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import FastAPI
+from typing import List
 
-from diana_services_api.app.dependencies import client_manager, jwt_bearer, mq_connector
-from diana_services_api.app.routers.api_proxy import proxy_route
-from diana_services_api.app.routers.llm import llm_route
-from diana_services_api.app.routers.mq_backend import mq_route
-from diana_services_api.app.routers.auth import auth_route
-from diana_services_api.version import __version__
+from pydantic import BaseModel
 
 
-def create_app(config: dict):
-    title = config.get('title') or "Diana Services API"
-    summary = config.get('summary') or "HTTP component of the Device Independent API for Neon Applications (DIANA)"
-    version = __version__
-    app = FastAPI(title=title, summary=summary, version=version)
-    app.include_router(auth_route)
-    app.include_router(proxy_route)
-    app.include_router(mq_route)
-    app.include_router(llm_route)
+class LLMRequest(BaseModel):
+    query: str
+    history: List[tuple] = []
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "query": "I am well, how about you?",
+                "history": [("user", "hello"),
+                            ("llm", "Hi, how can I help you today?")]}]}}
 
-    return app
+
+class LLMResponse(BaseModel):
+    response: str
+    history: List[tuple]
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "query": "I am well, how about you?",
+                "history": [("user", "hello"),
+                            ("llm", "Hi, how can I help you today?"),
+                            ("user", "I am well, how about you?"),
+                            ("llm", "As a large language model, I do not feel")
+                            ]}]}}

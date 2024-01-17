@@ -25,7 +25,8 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from uuid import uuid4
 
 from fastapi import HTTPException
 
@@ -41,6 +42,7 @@ class APIError(HTTPException):
 class MQServiceManager:
     def __init__(self, config: dict):
         self.mq_default_timeout = config.get('mq_default_timeout', 10)
+        self.mq_cliend_id = str(uuid4())
 
     def _validate_api_proxy_response(self, response: dict):
         if response['status_code'] == 200:
@@ -66,6 +68,18 @@ class MQServiceManager:
         response = send_mq_request("/neon_api", query_params, "neon_api_input",
                                    "neon_api_output", timeout)
         return self._validate_api_proxy_response(response)
+
+    def query_llm(self, llm_name: str, query: str, history: List[tuple]):
+        response = send_mq_request("/llm", {"query": query,
+                                            "history": history},
+                                   f"{llm_name}_input",
+                                   response_queue=f"{llm_name}_"
+                                                  f"{self.mq_cliend_id}")
+        response = response.get('response') or ""
+        history.append(("user", query))
+        history.append(("llm", response))
+        return {"response": response,
+                "history": history}
 
     def send_email(self, recipient: str, subject: str, body: str,
                    attachments: Optional[Dict[str, str]]):

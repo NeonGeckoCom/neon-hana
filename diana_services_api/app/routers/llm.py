@@ -24,24 +24,35 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import FastAPI
-
-from diana_services_api.app.dependencies import client_manager, jwt_bearer, mq_connector
-from diana_services_api.app.routers.api_proxy import proxy_route
-from diana_services_api.app.routers.llm import llm_route
-from diana_services_api.app.routers.mq_backend import mq_route
-from diana_services_api.app.routers.auth import auth_route
-from diana_services_api.version import __version__
+from fastapi import APIRouter, Depends
+from diana_services_api.schema.llm_requests import *
+from diana_services_api.app.dependencies import jwt_bearer, mq_connector
 
 
-def create_app(config: dict):
-    title = config.get('title') or "Diana Services API"
-    summary = config.get('summary') or "HTTP component of the Device Independent API for Neon Applications (DIANA)"
-    version = __version__
-    app = FastAPI(title=title, summary=summary, version=version)
-    app.include_router(auth_route)
-    app.include_router(proxy_route)
-    app.include_router(mq_route)
-    app.include_router(llm_route)
+llm_route = APIRouter(prefix="/llm", tags=["backend"],
+                      dependencies=[Depends(jwt_bearer)])
 
-    return app
+
+@llm_route.post("/chatgpt")
+async def llm_ask_chatgpt(query: LLMRequest) -> LLMResponse:
+    return mq_connector.query_llm("chat_gpt", **dict(query))
+
+
+@llm_route.post("/fastchat")
+async def llm_ask_fastchat(query: LLMRequest) -> LLMResponse:
+    return mq_connector.query_llm("fastchat", **dict(query))
+
+
+@llm_route.post("/gemini")
+async def llm_ask_gemini(query: LLMRequest) -> LLMResponse:
+    return mq_connector.query_llm("gemini", **dict(query))
+
+
+@llm_route.post("/claude")
+async def llm_ask_claude(query: LLMRequest) -> LLMResponse:
+    return mq_connector.query_llm("claude", **dict(query))
+
+
+@llm_route.post("/palm")
+async def llm_ask_palm(query: LLMRequest) -> LLMResponse:
+    return mq_connector.query_llm("palm2", **dict(query))
