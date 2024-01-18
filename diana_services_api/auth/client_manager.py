@@ -44,6 +44,17 @@ class ClientManager:
         self._disable_auth = config.get("disable_auth")
         self._jwt_algo = "HS256"
 
+    def _create_tokens(self, encode_data: dict) -> dict:
+        token = jwt.encode(encode_data, self._access_secret, self._jwt_algo)
+        encode_data['expire'] = time() + self._refresh_token_lifetime
+        encode_data['access_token'] = token
+        refresh = jwt.encode(encode_data, self._refresh_secret, self._jwt_algo)
+        # TODO: Store refresh token on server to allow invalidating clients
+        return {"username": encode_data['username'],
+                "client_id": encode_data['client_id'],
+                "access_token": token,
+                "refresh_token": refresh}
+
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None):
         if client_id in self.authorized_clients:
@@ -56,16 +67,40 @@ class ClientManager:
                        "username": username,
                        "password": password,
                        "expire": expiration}
-        token = jwt.encode(encode_data, self._access_secret, self._jwt_algo)
-        encode_data['expire'] = time() + self._refresh_token_lifetime
-        refresh = jwt.encode(encode_data, self._refresh_secret, self._jwt_algo)
-        # TODO: Store refresh token on server to validate refresh requests
-        auth = {"username": username,
-                "client_id": client_id,
-                "access_token": token,
-                "refresh_token": refresh}
+        auth = self._create_tokens(encode_data)
         self.authorized_clients[client_id] = auth
         return auth
+
+    def check_refresh_request(self, access_token: str, refresh_token: str,
+                              client_id: str):
+        # Read and validate refresh token
+        try:
+            refresh_data = jwt.decode(refresh_token, self._refresh_secret,
+                                      self._jwt_algo)
+        except DecodeError:
+            raise HTTPException(status_code=400,
+                                detail="Invalid refresh token supplied")
+        if refresh_data['access_token'] != access_token:
+            raise HTTPException(status_code=403,
+                                detail="Refresh and access token mismatch")
+        if time() > refresh_data['expire']:
+            raise HTTPException(status_code=401,
+                                detail="Refresh token is expired")
+        # Read access token and re-generate a new pair of tokens
+        try:
+            token_data = jwt.decode(access_token, self._access_secret,
+                                    self._jwt_algo)
+        except DecodeError:
+            raise HTTPException(status_code=400,
+                                detail="Invalid access token supplied")
+        if token_data['client_id'] != client_id:
+            raise HTTPException(status_code=403,
+                                detail="Access token does not match client_id")
+        encode_data = {k: token_data[k] for k in
+                       ("client_id", "username", "password")}
+        encode_data["expire"] = time() + self._access_token_lifetime
+        new_auth = self._create_tokens(encode_data)
+        return new_auth
 
     def validate_auth(self, token: str) -> bool:
         if self._disable_auth:

@@ -32,7 +32,7 @@ from diana_services_api.app import create_app
 
 
 def main():
-    config = Configuration().get("diana_services_api")
+    config = Configuration().get("diana_services_api", {})
     app = create_app(config)
     uvicorn.run(app, host=config.get('server_host', "0.0.0.0"),
                 port=config.get('port', 8080))

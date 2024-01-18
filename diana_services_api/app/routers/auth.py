@@ -35,3 +35,8 @@ auth_route = APIRouter(prefix="/auth", tags=["authentication"])
 @auth_route.post("/login")
 async def check_login(request: AuthenticationRequest) -> AuthenticationResponse:
     return client_manager.check_auth_request(**dict(request))
+
+
+@auth_route.post("/refresh")
+async def check_refresh(request: RefreshRequest) -> AuthenticationResponse:
+    return client_manager.check_refresh_request(**dict(request))
