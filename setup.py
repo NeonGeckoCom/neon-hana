@@ -65,7 +65,7 @@ with open(path.join(BASE_PATH, "neon_hana",
 setup(
     name='neon-hana',
     version=version,
-    description='Web API to access DIANA Services',
+    description='HTTP API for Neon Applications',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/NeonGeckoCom/neon-hana',

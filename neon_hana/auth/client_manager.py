@@ -92,12 +92,10 @@ class ClientManager:
             raise HTTPException(status_code=401,
                                 detail="Refresh token is expired")
         # Read access token and re-generate a new pair of tokens
-        try:
-            token_data = jwt.decode(access_token, self._access_secret,
-                                    self._jwt_algo)
-        except DecodeError:
-            raise HTTPException(status_code=400,
-                                detail="Invalid access token supplied")
+        # This is already known to be a valid token based on the refresh token
+        token_data = jwt.decode(access_token, self._access_secret,
+                                self._jwt_algo)
+
         if token_data['client_id'] != client_id:
             raise HTTPException(status_code=403,
                                 detail="Access token does not match client_id")

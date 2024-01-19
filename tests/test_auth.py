@@ -89,5 +89,54 @@ class TestClientManager(unittest.TestCase):
         self.assertEqual(e.exception.status_code, 429)
 
     def test_check_refresh_request(self):
-        # TODO
-        pass
+        valid_client = str(uuid4())
+        tokens = self.client_manager._create_tokens({"client_id": valid_client,
+                                                     "username": "test",
+                                                     "password": "test",
+                                                     "expire": time()})
+        self.assertEqual(tokens['client_id'], valid_client)
+
+        # Test invalid refresh token
+        with self.assertRaises(HTTPException) as e:
+            self.client_manager.check_refresh_request(tokens['access_token'],
+                                                      valid_client,
+                                                      valid_client)
+        self.assertEqual(e.exception.status_code, 400)
+
+        # Test incorrect access token
+        with self.assertRaises(HTTPException) as e:
+            self.client_manager.check_refresh_request(tokens['refresh_token'],
+                                                      tokens['refresh_token'],
+                                                      valid_client)
+        self.assertEqual(e.exception.status_code, 403)
+
+        # Test invalid client_id
+        with self.assertRaises(HTTPException) as e:
+            self.client_manager.check_refresh_request(tokens['access_token'],
+                                                      tokens['refresh_token'],
+                                                      str(uuid4()))
+        self.assertEqual(e.exception.status_code, 403)
+
+        # Test valid refresh
+        valid_refresh = self.client_manager.check_refresh_request(
+            tokens['access_token'], tokens['refresh_token'],
+            tokens['client_id'])
+        self.assertEqual(valid_refresh['client_id'], tokens['client_id'])
+        self.assertNotEqual(valid_refresh['access_token'],
+                            tokens['access_token'])
+        self.assertNotEqual(valid_refresh['refresh_token'],
+                            tokens['refresh_token'])
+
+        # Test expired refresh token
+        real_refresh = self.client_manager._refresh_token_lifetime
+        self.client_manager._refresh_token_lifetime = 0
+        tokens = self.client_manager._create_tokens({"client_id": valid_client,
+                                                     "username": "test",
+                                                     "password": "test",
+                                                     "expire": time()})
+        with self.assertRaises(HTTPException) as e:
+            self.client_manager.check_refresh_request(tokens['access_token'],
+                                                      tokens['refresh_token'],
+                                                      tokens['client_id'])
+        self.assertEqual(e.exception.status_code, 401)
+        self.client_manager._refresh_token_lifetime = real_refresh
