@@ -80,7 +80,13 @@ class TestClientManager(unittest.TestCase):
              "password": "test", "expire": time()})['access_token']
         self.assertFalse(self.client_manager.validate_auth(expired_token,
                                                            "127.0.0.1"))
-        # TODO: Test rate limited response
+
+        self.client_manager._rpm = 1
+        self.assertTrue(self.client_manager.validate_auth(auth_response,
+                                                          "192.168.1.2"))
+        with self.assertRaises(HTTPException) as e:
+            self.client_manager.validate_auth(auth_response, "192.168.1.2")
+        self.assertEqual(e.exception.status_code, 429)
 
     def test_check_refresh_request(self):
         # TODO
