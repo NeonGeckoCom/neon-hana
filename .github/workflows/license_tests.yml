@@ -8,4 +8,5 @@ on:
 jobs:
   license_tests:
     uses: neongeckocom/.github/.github/workflows/license_tests.yml@master
-    # TODO
+    with:
+      packages-exclude: '^(neon-hana|dnspython).*'
