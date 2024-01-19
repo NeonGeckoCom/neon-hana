@@ -6,7 +6,7 @@ on:
     branches:
       - dev
     paths-ignore:
-      - 'neon_diana_utils/version.py'
+      - 'neon_hana/version.py'
       - '**/Chart.yaml'
 
 jobs:

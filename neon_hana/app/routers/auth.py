@@ -26,8 +26,8 @@
 
 from fastapi import APIRouter
 
-from diana_services_api.app.dependencies import client_manager
-from diana_services_api.schema.auth_requests import *
+from neon_hana.app.dependencies import client_manager
+from neon_hana.schema.auth_requests import *
 
 auth_route = APIRouter(prefix="/auth", tags=["authentication"])
 

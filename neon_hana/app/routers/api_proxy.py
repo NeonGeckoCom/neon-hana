@@ -25,9 +25,9 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from fastapi import APIRouter, Depends
-from diana_services_api.schema.api_requests import *
-from diana_services_api.schema.api_responses import *
-from diana_services_api.app.dependencies import jwt_bearer, mq_connector
+from neon_hana.schema.api_requests import *
+from neon_hana.schema.api_responses import *
+from neon_hana.app.dependencies import jwt_bearer, mq_connector
 
 
 proxy_route = APIRouter(prefix="/proxy", tags=["backend"],

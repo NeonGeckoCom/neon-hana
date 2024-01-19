@@ -24,24 +24,19 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import FastAPI
+import uvicorn
 
-from diana_services_api.app.dependencies import client_manager, jwt_bearer, mq_connector
-from diana_services_api.app.routers.api_proxy import proxy_route
-from diana_services_api.app.routers.llm import llm_route
-from diana_services_api.app.routers.mq_backend import mq_route
-from diana_services_api.app.routers.auth import auth_route
-from diana_services_api.version import __version__
+from ovos_config.config import Configuration
+
+from neon_hana.app import create_app
 
 
-def create_app(config: dict):
-    title = config.get('fastapi_title') or "Diana Services API"
-    summary = config.get('fastapi_summary') or ""
-    version = __version__
-    app = FastAPI(title=title, summary=summary, version=version)
-    app.include_router(auth_route)
-    app.include_router(proxy_route)
-    app.include_router(mq_route)
-    app.include_router(llm_route)
+def main():
+    config = Configuration().get("hana", {})
+    app = create_app(config)
+    uvicorn.run(app, host=config.get('server_host', "0.0.0.0"),
+                port=config.get('port', 8080))
 
-    return app
+
+if __name__ == "__main__":
+    main()

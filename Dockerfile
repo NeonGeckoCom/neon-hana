@@ -1,7 +1,7 @@
 FROM python:3.9-slim
 
 LABEL vendor=neon.ai \
-    ai.neon.name="diana-services-api"
+    ai.neon.name="neon-hana"
 
 ENV OVOS_CONFIG_BASE_FOLDER neon
 ENV OVOS_CONFIG_FILENAME diana.yaml
@@ -13,4 +13,4 @@ WORKDIR /app
 COPY . /app
 RUN pip install /app
 
-CMD ["python3", "/app/diana_services_api/app/__main__.py"]
+CMD ["python3", "/app/neon_hana/app/__main__.py"]

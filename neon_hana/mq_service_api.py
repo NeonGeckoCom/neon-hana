@@ -125,7 +125,7 @@ class MQServiceManager:
                                     "data": {"audio_data": b64_audio,
                                              "utterances": [""],  # TODO: Compat
                                              "lang": lang},
-                                    "context": {"source": "diana_services_api"}}
+                                    "context": {"source": "hana"}}
         response = send_mq_request("/neon_chat_api", request_data,
                                    "neon_chat_api_request", timeout=timeout)
         return response
@@ -138,7 +138,7 @@ class MQServiceManager:
                                                          "gender": gender,
                                                          "lang": lang},
                                              "lang": lang},
-                                    "context": {"source": "diana_services_api"}}
+                                    "context": {"source": "hana"}}
         response = send_mq_request("/neon_chat_api", request_data,
                                    "neon_chat_api_request", timeout=timeout)
         return response

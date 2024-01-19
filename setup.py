@@ -52,7 +52,7 @@ def get_requirements(requirements_filename: str):
 with open(path.join(BASE_PATH, "README.md"), "r") as f:
     long_description = f.read()
 
-with open(path.join(BASE_PATH, "diana_services_api",
+with open(path.join(BASE_PATH, "hana",
                     "version.py"), "r", encoding="utf-8") as v:
     for line in v.readlines():
         if line.startswith("__version__"):
@@ -63,12 +63,12 @@ with open(path.join(BASE_PATH, "diana_services_api",
 
 
 setup(
-    name='diana-services-api',
+    name='neon-hana',
     version=version,
-    description='Web API to access Neon DIANA Services',
+    description='Web API to access DIANA Services',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url='https://github.com/NeonGeckoCom/diana-services-api',
+    url='https://github.com/NeonGeckoCom/neon-hana',
     author='NeonGecko',
     author_email='developers@neon.ai',
     license='BSD-3-Clause',

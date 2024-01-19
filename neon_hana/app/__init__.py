@@ -24,12 +24,24 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from ovos_config.config import Configuration
+from fastapi import FastAPI
 
-from diana_services_api.mq_service_api import MQServiceManager
-from diana_services_api.auth.client_manager import ClientManager, UserTokenAuth
+from neon_hana.app.dependencies import client_manager, jwt_bearer, mq_connector
+from neon_hana.app.routers.api_proxy import proxy_route
+from neon_hana.app.routers.llm import llm_route
+from neon_hana.app.routers.mq_backend import mq_route
+from neon_hana.app.routers.auth import auth_route
+from neon_hana.version import __version__
 
-config = Configuration().get("diana_services_api") or dict()
-mq_connector = MQServiceManager(config)
-client_manager = ClientManager(config)
-jwt_bearer = UserTokenAuth(client_manager)
+
+def create_app(config: dict):
+    title = config.get('fastapi_title') or "HANA: HTTP API for Neon Applications"
+    summary = config.get('fastapi_summary') or ""
+    version = __version__
+    app = FastAPI(title=title, summary=summary, version=version)
+    app.include_router(auth_route)
+    app.include_router(proxy_route)
+    app.include_router(mq_route)
+    app.include_router(llm_route)
+
+    return app

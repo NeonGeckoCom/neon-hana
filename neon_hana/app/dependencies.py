@@ -24,30 +24,12 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import APIRouter, Depends
-from diana_services_api.schema.api_requests import *
-from diana_services_api.schema.api_responses import *
-from diana_services_api.app.dependencies import jwt_bearer, mq_connector
+from ovos_config.config import Configuration
 
+from neon_hana.mq_service_api import MQServiceManager
+from neon_hana.auth.client_manager import ClientManager, UserTokenAuth
 
-mq_route = APIRouter(tags=["backend"], dependencies=[Depends(jwt_bearer)])
-
-
-@mq_route.post("/email", dependencies=[Depends(jwt_bearer)])
-async def email_send(request: SendEmailRequest):
-    mq_connector.send_email(**dict(request))
-
-
-@mq_route.post("/metrics/upload", dependencies=[Depends(jwt_bearer)])
-async def upload_metric(metric: UploadMetricRequest):
-    mq_connector.upload_metric(**dict(metric))
-
-
-@mq_route.post("/ccl/parse", dependencies=[Depends(jwt_bearer)])
-async def parse_nct_script(script: ParseScriptRequest) -> ScriptParserResponse:
-    return mq_connector.parse_ccl_script(**dict(script))
-
-
-@mq_route.post("/coupons", dependencies=[Depends(jwt_bearer)])
-async def get_coupons() -> CouponsResponse:
-    return mq_connector.get_coupons()
+config = Configuration().get("hana") or dict()
+mq_connector = MQServiceManager(config)
+client_manager = ClientManager(config)
+jwt_bearer = UserTokenAuth(client_manager)
