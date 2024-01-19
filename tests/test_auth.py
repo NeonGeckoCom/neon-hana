@@ -25,13 +25,17 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import unittest
+from time import time
 from uuid import uuid4
+
+from fastapi import HTTPException
 
 
 class TestClientManager(unittest.TestCase):
     from neon_hana.auth.client_manager import ClientManager
     client_manager = ClientManager({"access_token_secret": "a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b",
-                                    "refresh_token_secret": "a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b"})
+                                    "refresh_token_secret": "a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b",
+                                    "disable_auth": False})
 
     def test_check_auth_request(self):
         client_1 = str(uuid4())
@@ -70,6 +74,14 @@ class TestClientManager(unittest.TestCase):
                                                           "127.0.0.1"))
         self.assertFalse(self.client_manager.validate_auth(invalid_client,
                                                            "127.0.0.1"))
-        self.client_manager.authorized_clients.pop(valid_client)
-        self.assertFalse(self.client_manager.validate_auth(auth_response,
+
+        expired_token = self.client_manager._create_tokens(
+            {"client_id": invalid_client, "username": "test",
+             "password": "test", "expire": time()})['access_token']
+        self.assertFalse(self.client_manager.validate_auth(expired_token,
                                                            "127.0.0.1"))
+        # TODO: Test rate limited response
+
+    def test_check_refresh_request(self):
+        # TODO
+        pass
