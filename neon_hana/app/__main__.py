@@ -25,6 +25,10 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import uvicorn
+from os import environ
+
+environ.setdefault("OVOS_CONFIG_BASE_FOLDER", "neon")
+environ.setdefault("OVOS_CONFIG_FILENAME", "diana.yaml")
 
 from ovos_config.config import Configuration
 

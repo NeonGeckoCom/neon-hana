@@ -22,6 +22,8 @@ hana:
   fastapi_title: "My HANA API Host"
   fastapi_summary: "Personal HTTP API to access my DIANA backend."
   disable_auth: True
+  stt_max_length_encoded: 500000  # Arbitrary limit that is larger than any expected voice command
+  tts_max_words: 128  # Arbitrary limit that is longer than any default LLM token limit
 ```
 It is recommended to generate unique values for configured tokens, these are 32
 bytes in hexadecimal representation.

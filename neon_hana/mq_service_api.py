@@ -25,11 +25,14 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
+
+from tempfile import mkdtemp
+from time import time
 from typing import Optional, Dict, Any, List
 from uuid import uuid4
-
 from fastapi import HTTPException
 
+from neon_hana.schema.user_profile import UserProfile
 from neon_mq_connector.utils.client_utils import send_mq_request
 
 
@@ -43,6 +46,8 @@ class MQServiceManager:
     def __init__(self, config: dict):
         self.mq_default_timeout = config.get('mq_default_timeout', 10)
         self.mq_cliend_id = config.get('mq_client_id') or str(uuid4())
+        self.stt_max_length = config.get('stt_max_length_encoded') or 500000
+        self.tts_max_words = config.get('tts_max_words') or 128
 
     def _validate_api_proxy_response(self, response: dict):
         if response['status_code'] == 200:
@@ -120,25 +125,56 @@ class MQServiceManager:
         except TimeoutError as e:
             raise APIError(status_code=500, detail=repr(e))
 
-    def get_stt(self, b64_audio: str, lang: str, timeout: int = 20):
+    def get_stt(self, encoded_audio: str, lang_code: str):
+        if 0 < self.stt_max_length < len(encoded_audio):
+            raise APIError(status_code=400,
+                           detail=f"Audio exceeds maximum encoded length of "
+                                  f"{self.stt_max_length}")
         request_data = {"msg_type": "neon.get_stt",
-                                    "data": {"audio_data": b64_audio,
+                                    "data": {"audio_data": encoded_audio,
                                              "utterances": [""],  # TODO: Compat
-                                             "lang": lang},
-                                    "context": {"source": "hana"}}
+                                             "lang": lang_code},
+                                    "context": {"source": "hana",
+                                                "ident": f"{self.mq_cliend_id}"
+                                                         f"{time()}"}}
         response = send_mq_request("/neon_chat_api", request_data,
-                                   "neon_chat_api_request", timeout=timeout)
-        return response
+                                   "neon_chat_api_request",
+                                   timeout=self.mq_default_timeout)
+        return response['data']
 
-    def get_tts(self, string: str, lang: str, gender: str, timeout: int = 20):
+    def get_tts(self, to_speak: str, lang_code: str, gender: str):
+        if 0 < self.tts_max_words < len(to_speak.split()):
+            raise APIError(status_code=400,
+                           detail=f"Text exceeds maximum word count of "
+                                  f"{self.tts_max_words}")
         request_data = {"msg_type": "neon.get_tts",
-                                    "data": {"text": string,
-                                             "utterance": "",  # TODO: Compat
-                                             "speaker": {"name": "Neon",
-                                                         "gender": gender,
-                                                         "lang": lang},
-                                             "lang": lang},
-                                    "context": {"source": "hana"}}
+                        "data": {"text": to_speak,
+                                 "utterance": "",  # TODO: Compat
+                                 "speaker": {"name": "Neon",
+                                             "gender": gender,
+                                             "lang": lang_code},
+                                 "lang": lang_code},
+                        "context": {"source": "hana",
+                                    "ident": f"{self.mq_cliend_id}{time()}"}}
         response = send_mq_request("/neon_chat_api", request_data,
-                                   "neon_chat_api_request", timeout=timeout)
-        return response
+                                   "neon_chat_api_request",
+                                   timeout=self.mq_default_timeout)
+        audio = response['data'][lang_code]['audio'][gender]
+        return {"encoded_audio": audio}
+
+    def get_response(self, utterance: str, lang_code: str,
+                     user_profile: UserProfile):
+        user_profile.user.username = (user_profile.user.username or
+                                      self.mq_cliend_id)
+        request_data = {"msg_type": "recognizer_loop:utterance",
+                        "data": {"utterances": [utterance],
+                                 "lang": lang_code},
+                        "context": {"username": user_profile.user.username,
+                                    "user_profiles": [user_profile.model_dump(mode="json")],
+                                    "source": "hana",
+                                    "ident": f"{self.mq_cliend_id}{time()}"}}
+        response = send_mq_request("/neon_chat_api", request_data,
+                                   "neon_chat_api_request",
+                                   timeout=self.mq_default_timeout)
+        sentence = response['data']['responses'][lang_code]['sentence']
+        return {"answer": sentence, "lang_code": lang_code}
