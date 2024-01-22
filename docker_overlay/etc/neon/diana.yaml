@@ -28,3 +28,4 @@ hana:
   fastapi_summary: "HANA (HTTP API for Neon Applications) is the HTTP component of the Device Independent API for Neon Applications (DIANA)"
   stt_max_length_encoded: 500000
   tts_max_words: 128
+  enable_email: False
