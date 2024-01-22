@@ -42,3 +42,7 @@ async def get_stt(audio_in: STTRequest) -> STTResponse:
 async def get_tts(request: TTSRequest) -> TTSResponse:
     return mq_connector.get_tts(**dict(request))
 
+
+@assist_route.post("/get_response")
+async def get_response(request: SkillRequest) -> SkillResponse:
+    return mq_connector.get_response(**dict(request))

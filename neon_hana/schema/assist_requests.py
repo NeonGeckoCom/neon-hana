@@ -24,8 +24,10 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional, List
+from typing import List
 from pydantic import BaseModel
+
+from neon_hana.schema.user_profile import UserProfile
 
 
 class STTRequest(BaseModel):
@@ -77,11 +79,30 @@ class TTSResponse(BaseModel):
 
 # TODO: User profile model with below inputs?
 
-class TextInput(BaseModel):
+class SkillRequest(BaseModel):
     utterance: str
     lang_code: str
+    user_profile: UserProfile
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "utterance": "what time is it",
+                "lang_code": "en-us",
+                "user_profile": {"location": {"lat": 40.730610,
+                                              "lon": -73.935242,
+                                              "city": "New York",
+                                              "state": "New York"}}
+            }]}}
 
 
-class AudioInput(BaseModel):
-    encoded_audio: str
+class SkillResponse(BaseModel):
+    answer: str
     lang_code: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "answer": "four forty three.",
+                "lang_code": "en-us"
+            }]}}
