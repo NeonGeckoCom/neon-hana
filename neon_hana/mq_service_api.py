@@ -26,7 +26,6 @@
 
 import json
 
-from tempfile import mkdtemp
 from time import time
 from typing import Optional, Dict, Any, List
 from uuid import uuid4
@@ -48,6 +47,7 @@ class MQServiceManager:
         self.mq_cliend_id = config.get('mq_client_id') or str(uuid4())
         self.stt_max_length = config.get('stt_max_length_encoded') or 500000
         self.tts_max_words = config.get('tts_max_words') or 128
+        self.email_enabled = config.get('enable_email')
 
     def _validate_api_proxy_response(self, response: dict):
         if response['status_code'] == 200:
@@ -88,6 +88,8 @@ class MQServiceManager:
 
     def send_email(self, recipient: str, subject: str, body: str,
                    attachments: Optional[Dict[str, str]]):
+        if not self.email_enabled:
+            raise APIError(status_code=503, detail="Email service disabled")
         request_data = {"recipient": recipient,
                         "subject": subject,
                         "body": body,
