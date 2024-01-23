@@ -27,13 +27,13 @@
 from typing import Optional
 from uuid import uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AuthenticationRequest(BaseModel):
     username: str = "guest"
     password: Optional[str] = None
-    client_id: str = str(uuid4())
+    client_id: str = Field(default_factory=lambda: str(uuid4()))
 
     model_config = {
         "json_schema_extra": {
@@ -48,6 +48,7 @@ class AuthenticationResponse(BaseModel):
     client_id: str
     access_token: str
     refresh_token: str
+    expiration: float
 
     model_config = {
         "json_schema_extra": {
@@ -55,7 +56,8 @@ class AuthenticationResponse(BaseModel):
                 "username": "guest",
                 "client_id": "be84ae66-f61c-4aac-a9af-b0da364b82b6",
                 "access_token": "<redacted>",
-                "refresh_token": "<redacted>"
+                "refresh_token": "<redacted>",
+                "expiration": 1706045776.4168212
             }]}}
 
 

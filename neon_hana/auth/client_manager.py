@@ -50,6 +50,7 @@ class ClientManager:
         self._jwt_algo = "HS256"
 
     def _create_tokens(self, encode_data: dict) -> dict:
+        token_expiration = encode_data['expire']
         token = jwt.encode(encode_data, self._access_secret, self._jwt_algo)
         encode_data['expire'] = time() + self._refresh_token_lifetime
         encode_data['access_token'] = token
@@ -58,12 +59,25 @@ class ClientManager:
         return {"username": encode_data['username'],
                 "client_id": encode_data['client_id'],
                 "access_token": token,
-                "refresh_token": refresh}
+                "refresh_token": refresh,
+                "expiration": token_expiration}
 
     def check_auth_request(self, client_id: str, username: str,
-                           password: Optional[str] = None):
+                           password: Optional[str] = None,
+                           origin_ip: str = "127.0.0.1"):
         if client_id in self.authorized_clients:
+            print(f"Using cached client: {self.authorized_clients[client_id]}")
             return self.authorized_clients[client_id]
+
+        if not self.rate_limiter.get_all_buckets(f"auth{origin_ip}"):
+            self.rate_limiter.add_bucket(f"auth{origin_ip}",
+                                         TokenBucket(replenish_time=30,
+                                                     max_tokens=3))
+        if not self.rate_limiter.consume(f"auth{origin_ip}"):
+            raise HTTPException(status_code=429,
+                                detail=f"Too many auth requests from: "
+                                       f"{origin_ip}. Wait 30 seconds.")
+
         if username != "guest":
             # TODO: Validate password here
             pass
@@ -122,9 +136,6 @@ class ClientManager:
             if auth['expire'] < time():
                 self.authorized_clients.pop(auth['client_id'], None)
                 return False
-            # Keep track of authorized client connections
-            self.authorized_clients[auth['client_id']] = auth
-            # TODO: Consider consuming an extra request for guest sessions
             return True
         except DecodeError:
             # Invalid token supplied

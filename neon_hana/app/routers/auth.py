@@ -24,7 +24,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from neon_hana.app.dependencies import client_manager
 from neon_hana.schema.auth_requests import *
@@ -33,8 +33,10 @@ auth_route = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @auth_route.post("/login")
-async def check_login(request: AuthenticationRequest) -> AuthenticationResponse:
-    return client_manager.check_auth_request(**dict(request))
+async def check_login(auth_request: AuthenticationRequest,
+                      request: Request) -> AuthenticationResponse:
+    return client_manager.check_auth_request(**dict(auth_request),
+                                             origin_ip=request.client.host)
 
 
 @auth_route.post("/refresh")
