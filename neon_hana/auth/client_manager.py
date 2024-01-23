@@ -63,7 +63,8 @@ class ClientManager:
                 "expiration": token_expiration}
 
     def check_auth_request(self, client_id: str, username: str,
-                           password: Optional[str], origin_ip: str):
+                           password: Optional[str] = None,
+                           origin_ip: str = "127.0.0.1"):
         if client_id in self.authorized_clients:
             print(f"Using cached client: {self.authorized_clients[client_id]}")
             return self.authorized_clients[client_id]
