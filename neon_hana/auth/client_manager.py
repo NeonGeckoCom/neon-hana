@@ -50,6 +50,7 @@ class ClientManager:
         self._jwt_algo = "HS256"
 
     def _create_tokens(self, encode_data: dict) -> dict:
+        token_expiration = encode_data['expire']
         token = jwt.encode(encode_data, self._access_secret, self._jwt_algo)
         encode_data['expire'] = time() + self._refresh_token_lifetime
         encode_data['access_token'] = token
@@ -58,11 +59,13 @@ class ClientManager:
         return {"username": encode_data['username'],
                 "client_id": encode_data['client_id'],
                 "access_token": token,
-                "refresh_token": refresh}
+                "refresh_token": refresh,
+                "expiration": token_expiration}
 
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None):
         if client_id in self.authorized_clients:
+            print(f"Using cached client: {self.authorized_clients[client_id]}")
             return self.authorized_clients[client_id]
         if username != "guest":
             # TODO: Validate password here
@@ -122,9 +125,6 @@ class ClientManager:
             if auth['expire'] < time():
                 self.authorized_clients.pop(auth['client_id'], None)
                 return False
-            # Keep track of authorized client connections
-            self.authorized_clients[auth['client_id']] = auth
-            # TODO: Consider consuming an extra request for guest sessions
             return True
         except DecodeError:
             # Invalid token supplied
