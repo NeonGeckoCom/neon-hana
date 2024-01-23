@@ -27,13 +27,13 @@
 from typing import Optional
 from uuid import uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AuthenticationRequest(BaseModel):
     username: str = "guest"
     password: Optional[str] = None
-    client_id: str = str(uuid4())
+    client_id: str = Field(default_factory=lambda: str(uuid4()))
 
     model_config = {
         "json_schema_extra": {

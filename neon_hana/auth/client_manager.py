@@ -63,10 +63,20 @@ class ClientManager:
                 "expiration": token_expiration}
 
     def check_auth_request(self, client_id: str, username: str,
-                           password: Optional[str] = None):
+                           password: Optional[str], origin_ip: str):
         if client_id in self.authorized_clients:
             print(f"Using cached client: {self.authorized_clients[client_id]}")
             return self.authorized_clients[client_id]
+
+        if not self.rate_limiter.get_all_buckets(f"auth{origin_ip}"):
+            self.rate_limiter.add_bucket(f"auth{origin_ip}",
+                                         TokenBucket(replenish_time=30,
+                                                     max_tokens=3))
+        if not self.rate_limiter.consume(f"auth{origin_ip}"):
+            raise HTTPException(status_code=429,
+                                detail=f"Too many auth requests from: "
+                                       f"{origin_ip}. Wait 30 seconds.")
+
         if username != "guest":
             # TODO: Validate password here
             pass
