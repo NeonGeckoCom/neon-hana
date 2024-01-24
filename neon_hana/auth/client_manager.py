@@ -46,6 +46,7 @@ class ClientManager:
         self._access_secret = config.get("access_token_secret")
         self._refresh_secret = config.get("refresh_token_secret")
         self._rpm = config.get("requests_per_minute", 60)
+        self._auth_rpm = config.get("auth_requests_per_minute", 6)
         self._disable_auth = config.get("disable_auth")
         self._jwt_algo = "HS256"
 
@@ -71,12 +72,12 @@ class ClientManager:
 
         if not self.rate_limiter.get_all_buckets(f"auth{origin_ip}"):
             self.rate_limiter.add_bucket(f"auth{origin_ip}",
-                                         TokenBucket(replenish_time=30,
-                                                     max_tokens=3))
+                                         TokenBucket(replenish_time=60,
+                                                     max_tokens=self._auth_rpm))
         if not self.rate_limiter.consume(f"auth{origin_ip}"):
             raise HTTPException(status_code=429,
                                 detail=f"Too many auth requests from: "
-                                       f"{origin_ip}. Wait 30 seconds.")
+                                       f"{origin_ip}. Wait 1 minute.")
 
         if username != "guest":
             # TODO: Validate password here
