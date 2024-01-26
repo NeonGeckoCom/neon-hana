@@ -70,14 +70,19 @@ class ClientManager:
             print(f"Using cached client: {self.authorized_clients[client_id]}")
             return self.authorized_clients[client_id]
 
-        if not self.rate_limiter.get_all_buckets(f"auth{origin_ip}"):
-            self.rate_limiter.add_bucket(f"auth{origin_ip}",
+        ratelimit_id = f"auth{origin_ip}"
+        if not self.rate_limiter.get_all_buckets(ratelimit_id):
+            self.rate_limiter.add_bucket(ratelimit_id,
                                          TokenBucket(replenish_time=60,
                                                      max_tokens=self._auth_rpm))
-        if not self.rate_limiter.consume(f"auth{origin_ip}"):
+        if not self.rate_limiter.consume(ratelimit_id):
+            bucket = list(self.rate_limiter.get_all_buckets(ratelimit_id).
+                          values())[0]
+            replenish_time = bucket.last_replenished + bucket.replenish_time
+            wait_time = round(replenish_time - time())
             raise HTTPException(status_code=429,
                                 detail=f"Too many auth requests from: "
-                                       f"{origin_ip}. Wait 1 minute.")
+                                       f"{origin_ip}. Wait {wait_time}s.")
 
         if username != "guest":
             # TODO: Validate password here
