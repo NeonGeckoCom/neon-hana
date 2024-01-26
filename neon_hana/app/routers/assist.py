@@ -46,5 +46,6 @@ async def get_tts(request: TTSRequest) -> TTSResponse:
 @assist_route.post("/get_response")
 async def get_response(skill_request: SkillRequest,
                        request: Request) -> SkillResponse:
-    skill_request.node_data.networking.public_ip = request.client.host
+    if not skill_request.node_data.networking.public_ip:
+        skill_request.node_data.networking.public_ip = request.client.host
     return mq_connector.get_response(**dict(skill_request))
