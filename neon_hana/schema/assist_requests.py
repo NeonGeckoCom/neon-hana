@@ -24,9 +24,10 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
+from neon_hana.schema.node_model import NodeData
 from neon_hana.schema.user_profile import UserProfile
 
 
@@ -82,7 +83,8 @@ class TTSResponse(BaseModel):
 class SkillRequest(BaseModel):
     utterance: str
     lang_code: str
-    user_profile: UserProfile
+    user_profile: UserProfile = UserProfile()
+    node_data: Optional[NodeData] = NodeData()
 
     model_config = {
         "json_schema_extra": {
