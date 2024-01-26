@@ -17,6 +17,7 @@ hana:
   access_token_ttl: 86400  # 1 day
   refresh_token_ttl: 604800  # 1 week
   requests_per_minute: 60
+  auth_requests_per_minute: 6  # This counts valid and invalid requests from an IP address
   access_token_secret: a800445648142061fc238d1f84e96200da87f4f9fa7835cac90db8b4391b117b
   refresh_token_secret: 833d369ac73d883123743a44b4a7fe21203cffc956f4c8fec712e71aafa8e1aa
   fastapi_title: "My HANA API Host"
