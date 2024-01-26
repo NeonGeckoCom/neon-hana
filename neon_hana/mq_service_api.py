@@ -31,6 +31,7 @@ from typing import Optional, Dict, Any, List
 from uuid import uuid4
 from fastapi import HTTPException
 
+from neon_hana.schema.node_model import NodeData
 from neon_hana.schema.user_profile import UserProfile
 from neon_mq_connector.utils.client_utils import send_mq_request
 
@@ -48,8 +49,10 @@ class MQServiceManager:
         self.stt_max_length = config.get('stt_max_length_encoded') or 500000
         self.tts_max_words = config.get('tts_max_words') or 128
         self.email_enabled = config.get('enable_email')
+        self.sessions_by_id = dict()
 
-    def _validate_api_proxy_response(self, response: dict):
+    @staticmethod
+    def _validate_api_proxy_response(response: dict):
         if response['status_code'] == 200:
             try:
                 resp = json.loads(response['content'])
@@ -66,6 +69,18 @@ class MQServiceManager:
                 return {"answer": resp}
         code = response['status_code'] if response['status_code'] > 200 else 500
         raise APIError(status_code=code, detail=response['content'])
+
+    def get_session(self, node_data: NodeData) -> dict:
+        """
+        Get a serialized Session object for the specified Node.
+        @param node_data: NodeData received from client
+        @returns: Serialized session, possibly cached from previous a response
+        """
+        session_id = node_data.device_id
+        self.sessions_by_id.setdefault(session_id,
+                                       {"session_id": session_id,
+                                        "site_id": node_data.location.site_id})
+        return self.sessions_by_id[session_id]
 
     def query_api_proxy(self, service_name: str, query_params: dict,
                         timeout: int = 10):
@@ -165,18 +180,28 @@ class MQServiceManager:
         return {"encoded_audio": audio}
 
     def get_response(self, utterance: str, lang_code: str,
-                     user_profile: UserProfile):
+                     user_profile: UserProfile, node_data: NodeData):
+        session = self.get_session(node_data)
         user_profile.user.username = (user_profile.user.username or
                                       self.mq_cliend_id)
+
         request_data = {"msg_type": "recognizer_loop:utterance",
                         "data": {"utterances": [utterance],
                                  "lang": lang_code},
                         "context": {"username": user_profile.user.username,
-                                    "user_profiles": [user_profile.model_dump(mode="json")],
+                                    "user_profiles": [
+                                        user_profile.model_dump(mode="json")],
                                     "source": "hana",
+                                    "session": session,
+                                    "node_data": node_data.model_dump(
+                                        mode="json"),
                                     "ident": f"{self.mq_cliend_id}{time()}"}}
         response = send_mq_request("/neon_chat_api", request_data,
                                    "neon_chat_api_request",
                                    timeout=self.mq_default_timeout)
+
+        # Update session data for future inputs
+        self.sessions_by_id[session['session_id']] = \
+            response['context']['session']
         sentence = response['data']['responses'][lang_code]['sentence']
         return {"answer": sentence, "lang_code": lang_code}

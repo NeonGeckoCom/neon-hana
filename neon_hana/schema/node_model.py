@@ -23,28 +23,35 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request
-from neon_hana.schema.assist_requests import *
-from neon_hana.app.dependencies import jwt_bearer, mq_connector
-
-
-assist_route = APIRouter(prefix="/neon", tags=["assist"],
-                         dependencies=[Depends(jwt_bearer)])
+from pydantic import BaseModel, Field
+from typing import Optional, Dict
 
 
-@assist_route.post("/get_stt")
-async def get_stt(audio_in: STTRequest) -> STTResponse:
-    return mq_connector.get_stt(**dict(audio_in))
+class NodeSoftware(BaseModel):
+    operating_system: str = ""
+    os_version: str = ""
+    neon_packages: Optional[Dict[str, str]] = None
 
 
-@assist_route.post("/get_tts")
-async def get_tts(request: TTSRequest) -> TTSResponse:
-    return mq_connector.get_tts(**dict(request))
+class NodeNetworking(BaseModel):
+    local_ip: str = "127.0.0.1"
+    public_ip: str = ""
+    mac_address: str = ""
 
 
-@assist_route.post("/get_response")
-async def get_response(skill_request: SkillRequest,
-                       request: Request) -> SkillResponse:
-    skill_request.node_data.networking.public_ip = request.client.host
-    return mq_connector.get_response(**dict(skill_request))
+class NodeLocation(BaseModel):
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    site_id: Optional[str] = None
+
+
+class NodeData(BaseModel):
+    device_id: str = Field(default_factory=lambda: str(uuid4()))
+    device_name: str = ""
+    device_description: str = ""
+    platform: str = ""
+    networking: NodeNetworking = NodeNetworking()
+    software: NodeSoftware = NodeSoftware()
+    location: NodeLocation = NodeLocation()
