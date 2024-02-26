@@ -78,8 +78,6 @@ class TTSResponse(BaseModel):
             }]}}
 
 
-# TODO: User profile model with below inputs?
-
 class SkillRequest(BaseModel):
     utterance: str
     lang_code: str
