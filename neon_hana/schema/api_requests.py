@@ -198,11 +198,11 @@ Case(no_val):
     "no_val_1":
         Execute: what time is it
 
-Python: 1*2  # TODO: syntax check
+Python: 1*2
 
 LOOP check START
 Set: new_val = no_val  # This logs an error because it isn't declared
-# TODO: The following should warn/error
+# The following should warn/error
 dne = "test"
 voice_input(new_val)
 LOOP check END

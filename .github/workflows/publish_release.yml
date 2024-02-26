@@ -19,6 +19,7 @@ jobs:
         with:
           token: ${{secrets.GITHUB_TOKEN}}
           tag: ${{env.VERSION}}
+          generateReleaseNotes: true
   build_and_publish_docker:
     uses: neongeckocom/.github/.github/workflows/publish_docker.yml@master
     secrets: inherit
