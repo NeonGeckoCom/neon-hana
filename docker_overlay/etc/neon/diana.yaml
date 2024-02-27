@@ -1,0 +1,31 @@
+log_level: INFO
+logs:
+  level_overrides:
+    error:
+      - pika
+    warning:
+      - filelock
+    info:
+      - openai
+    debug: []
+MQ:
+  server: neon-rabbitmq
+  port: 5672
+  users:
+    mq_handler:
+      user: neon_api_utils
+      password: Klatchat2021
+hana:
+  mq_default_timeout: 10
+  access_token_ttl: 86400  # 1 day
+  refresh_token_ttl: 604800  # 1 week
+  requests_per_minute: 60
+  access_token_secret: a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b
+  refresh_token_secret: 833d369ac73d883123743a44b4a7fe21203cffc956f4c8a99be6e71aafa8e1aa
+  server_host: "0.0.0.0"
+  server_port: 8080
+  fastapi_title: "Hana"
+  fastapi_summary: "HANA (HTTP API for Neon Applications) is the HTTP component of the Device Independent API for Neon Applications (DIANA)"
+  stt_max_length_encoded: 500000
+  tts_max_words: 128
+  enable_email: False
