@@ -56,20 +56,19 @@ class MQServiceManager:
         if response['status_code'] == 200:
             try:
                 resp = json.loads(response['content'])
+                if query_params.get('service') == "alpha_vantage":
+                    resp['service'] = query_params['service']
+                    if query_params.get("region"):
+                        filtered = [
+                            stock for stock in resp.get("bestMatches")
+                            if stock.get("4. region") == query_params["region"]]
+                        resp['bestMatches'] = filtered
                 if isinstance(resp, dict):
                     return resp
                 # Reverse Geocode API returns a list; reformat that to a dict
                 if isinstance(resp, list):
                     return {**resp.pop(0),
                             **{"alternate_results": resp}}
-                if query_params.get('service') == "alpha_vantage":
-                    if query_params.get("region"):
-                        filtered = [
-                            stock for stock in response.get("bestMatches")
-                            if stock.get("4. region") == query_params["region"]]
-                        response['bestMatches'] = filtered
-
-                # TODO: Re-format Stock returns
             except json.JSONDecodeError:
                 resp = response['content']
             # Wolfram Spoken API returns a string; reformat that to a dict
