@@ -36,6 +36,7 @@ proxy_route = APIRouter(prefix="/proxy", tags=["backend"],
 
 @proxy_route.post("/weather")
 async def api_proxy_weather(query: WeatherAPIRequest) -> WeatherAPIOnecallResponse:
+    query["lang"] = query.pop("lang_code")
     return mq_connector.query_api_proxy("open_weather_map", dict(query))
 
 
