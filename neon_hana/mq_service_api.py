@@ -58,7 +58,7 @@ class MQServiceManager:
                 resp = json.loads(response['content'])
                 if query_params.get('service') == "alpha_vantage":
                     resp['service'] = query_params['service']
-                    if query_params.get("region"):
+                    if query_params.get("region") and resp.get('bestMatches'):
                         filtered = [
                             stock for stock in resp.get("bestMatches")
                             if stock.get("4. region") == query_params["region"]]
