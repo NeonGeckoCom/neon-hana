@@ -52,9 +52,11 @@ class WeatherAPIRequest(BaseModel):
 
 class StockAPISymbolRequest(BaseModel):
     company: Optional[str] = None
+    region: Optional[str] = None
     model_config = {
         "json_schema_extra": {
-            "examples": [{"company": "microsoft"}]}}
+            "examples": [{"company": "microsoft",
+                          "region": "United States"}]}}
 
 
 class StockAPIQuoteRequest(BaseModel):
