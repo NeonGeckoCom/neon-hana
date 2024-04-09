@@ -1749,6 +1749,7 @@ class StockAPIQuoteResponse(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
+                    "provider": "alpha_vantage",
                     "Global Quote": {
                         "01. symbol": "GOOG",
                         "02. open": "144.8950",
@@ -1771,6 +1772,7 @@ class StockAPISearchResponse(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
+                    "provider": "alpha_vantage",
                     "bestMatches": [
                         {
                             "1. symbol": "MSF0.FRK",
