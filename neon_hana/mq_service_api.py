@@ -119,7 +119,8 @@ class MQServiceManager:
         response = send_mq_request("/neon_emails", request_data,
                                    "neon_emails_input")
         if not response.get("success"):
-            raise APIError(status_code=500, detail="Email failed to send")
+            error = response.get("error") or "Email failed to send"
+            raise APIError(status_code=500, detail=error)
 
     def upload_metric(self, metric_name: str, timestamp: str,
                       metric_data: Dict[str, Any]):
