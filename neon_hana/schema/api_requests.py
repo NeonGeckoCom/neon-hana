@@ -34,7 +34,7 @@ class WeatherAPIRequest(BaseModel):
     lat: float
     lon: float
     unit: str = "metric"
-
+    lang_code: str = "en"
     model_config = {
         "json_schema_extra": {
             "examples": [{
@@ -42,11 +42,12 @@ class WeatherAPIRequest(BaseModel):
                         "lat": 47.6815,
                         "lon": -122.2087,
                         "unit": "imperial",
+                        "lang_code": "en"
                     }, {
                         "api": "onecall",
                         "lat": 47.6815,
                         "lon": -122.2087,
-                        "unit": "metric",
+                        "unit": "metric"
                     }]}}
 
 
