@@ -23,7 +23,8 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-from dataclasses import dataclass
+
+from dataclasses import dataclass, asdict
 
 
 @dataclass
@@ -31,3 +32,6 @@ class ClientPermissions:
     assist: bool = True
     backend: bool = True
     node: bool = False
+
+    def as_dict(self):
+        return asdict(self)

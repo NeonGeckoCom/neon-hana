@@ -62,7 +62,7 @@ class ClientManager:
         # TODO: Store refresh token on server to allow invalidating clients
         return {"username": encode_data['username'],
                 "client_id": encode_data['client_id'],
-                "node_access": encode_data['node_access'],
+                "permissions": encode_data['permissions'],
                 "access_token": token,
                 "refresh_token": refresh,
                 "expiration": token_expiration}
@@ -73,11 +73,13 @@ class ClientManager:
         @param client_id: Client ID to get permissions for
         @return: ClientPermissions object for the specified client
         """
+        if self._disable_auth:
+            return ClientPermissions(assist=True, backend=True, node=True)
         if client_id not in self.authorized_clients:
             LOG.warning(f"{client_id} not known to this server")
             return ClientPermissions(assist=False, backend=False, node=False)
         client = self.authorized_clients[client_id]
-        return ClientPermissions(node=client.get("node_access", False))
+        return ClientPermissions(**client.get('permissions', dict()))
 
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None,
@@ -107,12 +109,13 @@ class ClientManager:
         # TODO: Configurable username/password here
         if username == "node_user" and password == "node_password":
             node_access = True
+        permissions = ClientPermissions(node=node_access)
         expiration = time() + self._access_token_lifetime
         encode_data = {"client_id": client_id,
                        "username": username,
                        "password": password,
-                       "expire": expiration,
-                       "node_access": node_access}
+                       "permissions": permissions.as_dict(),
+                       "expire": expiration}
         auth = self._create_tokens(encode_data)
         self.authorized_clients[client_id] = auth
         return auth
@@ -163,6 +166,7 @@ class ClientManager:
             if auth['expire'] < time():
                 self.authorized_clients.pop(auth['client_id'], None)
                 return False
+            self.authorized_clients[auth['client_id']] = auth
             return True
         except DecodeError:
             # Invalid token supplied

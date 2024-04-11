@@ -48,14 +48,6 @@ class MQWebsocketAPI(NeonAIClient):
         self._sessions[session_id] = {"session": {"session_id": session_id},
                                       "socket": ws}
 
-    def close_connection(self, session_id: str):
-        async def _close_connection(ws: WebSocket):
-            await ws.close()
-
-        socket = self._sessions.pop(session_id, {}).get("socket")
-        if socket is not None:
-            run(_close_connection(socket))
-
     def get_session(self, session_id: str):
         with self._session_lock:
             sess = dict(self._sessions.get(session_id, {}).get("session"))
@@ -133,8 +125,4 @@ class MQWebsocketAPI(NeonAIClient):
         loop = get_event_loop()
         loop.call_soon_threadsafe(loop.stop)
         LOG.info("Stopped Event Loop")
-
-        for session in list(self._sessions.keys()):
-            self.close_connection(session)
-        LOG.info("Closed Connections")
         super().shutdown()

@@ -54,4 +54,3 @@ async def node_v1_endpoint(websocket: WebSocket, client_id: str):
             socket_api.handle_client_input(client_in, client_id)
         except WebSocketDisconnect:
             disconnect_event.set()
-            socket_api.close_connection(client_id)
