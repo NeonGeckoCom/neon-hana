@@ -1,0 +1,2 @@
+neon-iris~=0.1,>=0.1.1a5
+websockets~=12.0
