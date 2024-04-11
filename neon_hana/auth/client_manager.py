@@ -31,8 +31,11 @@ from typing import Dict, Optional
 from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import DecodeError
+from ovos_utils import LOG
 from token_throttler import TokenThrottler, TokenBucket
 from token_throttler.storage import RuntimeStorage
+
+from neon_hana.auth.permissions import ClientPermissions
 
 
 class ClientManager:
@@ -59,9 +62,22 @@ class ClientManager:
         # TODO: Store refresh token on server to allow invalidating clients
         return {"username": encode_data['username'],
                 "client_id": encode_data['client_id'],
+                "node_access": encode_data['node_access'],
                 "access_token": token,
                 "refresh_token": refresh,
                 "expiration": token_expiration}
+
+    def get_permissions(self, client_id: str) -> ClientPermissions:
+        """
+        Get ClientPermissions model for the given client_id
+        @param client_id: Client ID to get permissions for
+        @return: ClientPermissions object for the specified client
+        """
+        if client_id not in self.authorized_clients:
+            LOG.warning(f"{client_id} not known to this server")
+            return ClientPermissions(assist=False, backend=False, node=False)
+        client = self.authorized_clients[client_id]
+        return ClientPermissions(node=client.get("node_access", False))
 
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None,
@@ -84,14 +100,19 @@ class ClientManager:
                                 detail=f"Too many auth requests from: "
                                        f"{origin_ip}. Wait {wait_time}s.")
 
+        node_access = False
         if username != "guest":
             # TODO: Validate password here
             pass
+        # TODO: Configurable username/password here
+        if username == "node_user" and password == "node_password":
+            node_access = True
         expiration = time() + self._access_token_lifetime
         encode_data = {"client_id": client_id,
                        "username": username,
                        "password": password,
-                       "expire": expiration}
+                       "expire": expiration,
+                       "node_access": node_access}
         auth = self._create_tokens(encode_data)
         self.authorized_clients[client_id] = auth
         return auth
