@@ -26,7 +26,7 @@
 
 from asyncio import Event
 from signal import signal, SIGINT
-from fastapi import APIRouter, WebSocket, HTTPException
+from fastapi import APIRouter, WebSocket, HTTPException, Request
 from starlette.websockets import WebSocketDisconnect
 
 from neon_hana.app.dependencies import config, client_manager
@@ -39,7 +39,11 @@ signal(SIGINT, socket_api.shutdown)
 
 
 @node_route.websocket("/v1")
-async def node_v1_endpoint(websocket: WebSocket, client_id: str):
+async def node_v1_endpoint(websocket: WebSocket, token: str):
+    client_id = client_manager.get_client_id(token)
+    if not client_manager.validate_auth(token, client_id):
+        raise HTTPException(status_code=403,
+                            detail="Invalid or expired token.")
     if not client_manager.get_permissions(client_id).node:
         raise HTTPException(status_code=401,
                             detail=f"Client not authorized for node access "

@@ -149,6 +149,10 @@ class ClientManager:
         new_auth = self._create_tokens(encode_data)
         return new_auth
 
+    def get_client_id(self, token: str):
+        auth = jwt.decode(token, self._access_secret, self._jwt_algo)
+        return auth['client_id']
+
     def validate_auth(self, token: str, origin_ip: str) -> bool:
         if not self.rate_limiter.get_all_buckets(origin_ip):
             self.rate_limiter.add_bucket(origin_ip,
