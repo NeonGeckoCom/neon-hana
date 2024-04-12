@@ -56,6 +56,10 @@ class ClientManager:
         self._jwt_algo = "HS256"
 
     def _create_tokens(self, encode_data: dict) -> dict:
+        # Permissions were not included in old tokens, allow refreshing with
+        # default permissions
+        encode_data.setdefault("permissions", ClientPermissions().as_dict())
+
         token_expiration = encode_data['expire']
         token = jwt.encode(encode_data, self._access_secret, self._jwt_algo)
         encode_data['expire'] = time() + self._refresh_token_lifetime
