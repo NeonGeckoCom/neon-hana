@@ -51,6 +51,8 @@ class ClientManager:
         self._rpm = config.get("requests_per_minute", 60)
         self._auth_rpm = config.get("auth_requests_per_minute", 6)
         self._disable_auth = config.get("disable_auth")
+        self._node_username = config.get("node_username")
+        self._node_password = config.get("node_password")
         self._jwt_algo = "HS256"
 
     def _create_tokens(self, encode_data: dict) -> dict:
@@ -74,6 +76,7 @@ class ClientManager:
         @return: ClientPermissions object for the specified client
         """
         if self._disable_auth:
+            LOG.debug("Auth disabled, allow full client permissions")
             return ClientPermissions(assist=True, backend=True, node=True)
         if client_id not in self.authorized_clients:
             LOG.warning(f"{client_id} not known to this server")
@@ -106,8 +109,8 @@ class ClientManager:
         if username != "guest":
             # TODO: Validate password here
             pass
-        # TODO: Configurable username/password here
-        if username == "node_user" and password == "node_password":
+        if all((self._node_username, username == self._node_username,
+                password == self._node_password)):
             node_access = True
         permissions = ClientPermissions(node=node_access)
         expiration = time() + self._access_token_lifetime
