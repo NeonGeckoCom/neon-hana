@@ -60,6 +60,8 @@ class TestClientManager(unittest.TestCase):
         self.assertEqual(auth_resp_2['username'], 'guest')
         self.assertEqual(auth_resp_2['client_id'], client_2)
 
+        # TODO: Test permissions
+
         # Check auth already authorized
         self.assertEqual(auth_resp_2,
                          self.client_manager.check_auth_request(**request_2))
@@ -77,7 +79,8 @@ class TestClientManager(unittest.TestCase):
 
         expired_token = self.client_manager._create_tokens(
             {"client_id": invalid_client, "username": "test",
-             "password": "test", "expire": time()})['access_token']
+             "password": "test", "expire": time(),
+             "permissions": {}})['access_token']
         self.assertFalse(self.client_manager.validate_auth(expired_token,
                                                            "127.0.0.1"))
 
@@ -93,7 +96,8 @@ class TestClientManager(unittest.TestCase):
         tokens = self.client_manager._create_tokens({"client_id": valid_client,
                                                      "username": "test",
                                                      "password": "test",
-                                                     "expire": time()})
+                                                     "expire": time(),
+                                                     "permissions": {}})
         self.assertEqual(tokens['client_id'], valid_client)
 
         # Test invalid refresh token
@@ -133,10 +137,15 @@ class TestClientManager(unittest.TestCase):
         tokens = self.client_manager._create_tokens({"client_id": valid_client,
                                                      "username": "test",
                                                      "password": "test",
-                                                     "expire": time()})
+                                                     "expire": time(),
+                                                    "permissions": {}})
         with self.assertRaises(HTTPException) as e:
             self.client_manager.check_refresh_request(tokens['access_token'],
                                                       tokens['refresh_token'],
                                                       tokens['client_id'])
         self.assertEqual(e.exception.status_code, 401)
         self.client_manager._refresh_token_lifetime = real_refresh
+
+    def test_get_permissions(self):
+        # TODO: Test with auth enabled/disabled, node/non-node user
+        pass
