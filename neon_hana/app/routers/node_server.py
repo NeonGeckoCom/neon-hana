@@ -26,12 +26,19 @@
 
 from asyncio import Event
 from signal import signal, SIGINT
+from typing import Optional, Union
+
 from fastapi import APIRouter, WebSocket, HTTPException, Request
 from starlette.websockets import WebSocketDisconnect
 
 from neon_hana.app.dependencies import config, client_manager
 from neon_hana.mq_websocket_api import MQWebsocketAPI
 
+from neon_hana.schema.node_v1 import (NodeAudioInput, NodeGetStt,
+                                      NodeGetTts, NodeKlatResponse,
+                                      NodeAudioInputResponse,
+                                      NodeGetSttResponse,
+                                      NodeGetTtsResponse)
 node_route = APIRouter(prefix="/node", tags=["node"])
 
 socket_api = MQWebsocketAPI(config)
@@ -58,3 +65,11 @@ async def node_v1_endpoint(websocket: WebSocket, token: str):
             socket_api.handle_client_input(client_in, client_id)
         except WebSocketDisconnect:
             disconnect_event.set()
+
+
+@node_route.get("/v1/doc")
+async def node_v1_doc(_: Optional[Union[NodeAudioInput, NodeGetStt,
+                                        NodeGetTts]]) -> \
+        Optional[Union[NodeKlatResponse, NodeAudioInputResponse,
+                       NodeGetSttResponse, NodeGetTtsResponse]]:
+    pass
