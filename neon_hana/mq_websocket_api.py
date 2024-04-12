@@ -97,13 +97,16 @@ class MQWebsocketAPI(NeonAIClient):
     def handle_klat_response(self, message: Message):
         self._update_session_data(message)
         run(self.send_to_client(message))
+        LOG.debug(message.context.get("timing"))
 
     def handle_complete_intent_failure(self, message: Message):
         self._update_session_data(message)
         run(self.send_to_client(message))
 
     def handle_api_response(self, message: Message):
-        pass
+        if message.msg_type == "neon.audio_input.response":
+            LOG.info(message.data.get("transcripts"))
+        LOG.debug(message.context.get("timing"))
 
     def handle_error_response(self, message: Message):
         run(self.send_to_client(message))
