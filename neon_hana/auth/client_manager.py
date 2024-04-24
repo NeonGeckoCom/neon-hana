@@ -90,7 +90,16 @@ class ClientManager:
 
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None,
-                           origin_ip: str = "127.0.0.1"):
+                           origin_ip: str = "127.0.0.1") -> dict:
+        """
+        Authenticate and Authorize a new client connection with the specified
+        username, password, and origin IP address.
+        @param client_id: Client ID of the connection to auth
+        @param username: Supplied username to authenticate
+        @param password: Supplied password to authenticate
+        @param origin_ip: Origin IP address of request
+        @return: response tokens, permissions, and other metadata
+        """
         if client_id in self.authorized_clients:
             print(f"Using cached client: {self.authorized_clients[client_id]}")
             return self.authorized_clients[client_id]

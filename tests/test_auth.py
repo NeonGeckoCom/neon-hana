@@ -147,5 +147,58 @@ class TestClientManager(unittest.TestCase):
         self.client_manager._refresh_token_lifetime = real_refresh
 
     def test_get_permissions(self):
-        # TODO: Test with auth enabled/disabled, node/non-node user
-        pass
+        from neon_hana.auth.permissions import ClientPermissions
+
+        node_user = "node_test"
+        rest_user = "rest_user"
+        self.client_manager._node_username = node_user
+        self.client_manager._node_password = node_user
+
+        rest_resp = self.client_manager.check_auth_request(rest_user, rest_user)
+        node_resp = self.client_manager.check_auth_request(node_user, node_user,
+                                                           node_user)
+        node_fail = self.client_manager.check_auth_request("node_fail",
+                                                           node_user, rest_user)
+
+        rest_cid = rest_resp['client_id']
+        node_cid = node_resp['client_id']
+        fail_cid = node_fail['client_id']
+
+        permissive = ClientPermissions(True, True, True)
+        no_node = ClientPermissions(True, True, False)
+        no_perms = ClientPermissions(False, False, False)
+
+        # Auth disabled, returns all True
+        self.client_manager._disable_auth = True
+        self.assertEqual(self.client_manager.get_permissions(rest_cid),
+                         permissive)
+        self.assertEqual(self.client_manager.get_permissions(node_cid),
+                         permissive)
+        self.assertEqual(self.client_manager.get_permissions(rest_cid),
+                         permissive)
+        self.assertEqual(self.client_manager.get_permissions(fail_cid),
+                         permissive)
+        self.assertEqual(self.client_manager.get_permissions("fake_user"),
+                         permissive)
+
+        # Auth enabled
+        self.client_manager._disable_auth = False
+        self.assertEqual(self.client_manager.get_permissions(rest_cid), no_node)
+        self.assertEqual(self.client_manager.get_permissions(node_cid),
+                         permissive)
+        self.assertEqual(self.client_manager.get_permissions(fail_cid), no_node)
+        self.assertEqual(self.client_manager.get_permissions("fake_user"),
+                         no_perms)
+
+    def test_client_permissions(self):
+        from neon_hana.auth.permissions import ClientPermissions
+        default_perms = ClientPermissions()
+        restricted_perms = ClientPermissions(False, False, False)
+        permissive_perms = ClientPermissions(True, True, True)
+        self.assertIsInstance(default_perms.as_dict(), dict)
+        for v in default_perms.as_dict().values():
+            self.assertIsInstance(v, bool)
+        self.assertIsInstance(restricted_perms.as_dict(), dict)
+        self.assertFalse(any([v for v in restricted_perms.as_dict().values()]))
+        self.assertIsInstance(permissive_perms.as_dict(), dict)
+        self.assertTrue(all([v for v in permissive_perms.as_dict().values()]))
