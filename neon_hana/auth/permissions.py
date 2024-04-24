@@ -29,9 +29,15 @@ from dataclasses import dataclass, asdict
 
 @dataclass
 class ClientPermissions:
+    """
+    Data class representing permissions of a particular client connection.
+    """
     assist: bool = True
     backend: bool = True
     node: bool = False
 
-    def as_dict(self):
+    def as_dict(self) -> dict:
+        """
+        Get a dict representation of this instance.
+        """
         return asdict(self)

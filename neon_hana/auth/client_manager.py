@@ -165,7 +165,12 @@ class ClientManager:
         new_auth = self._create_tokens(encode_data)
         return new_auth
 
-    def get_client_id(self, token: str):
+    def get_client_id(self, token: str) -> str:
+        """
+        Extract the client_id from a JWT token
+        @param token: JWT token to parse
+        @return: client_id associated with token
+        """
         auth = jwt.decode(token, self._access_secret, self._jwt_algo)
         return auth['client_id']
 
