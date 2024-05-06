@@ -1,69 +1,52 @@
 # Changelog
 
-## [0.0.1a9](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.1a9) (2024-02-26)
+## [0.0.2a5](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.2a5) (2024-05-06)
 
-[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.1a8...0.0.1a9)
-
-**Merged pull requests:**
-
-- Cleanup comments and prep for release [\#13](https://github.com/NeonGeckoCom/neon-hana/pull/13) ([NeonDaniel](https://github.com/NeonDaniel))
-
-## [0.0.1a8](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.1a8) (2024-01-26)
-
-[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.1a7...0.0.1a8)
+[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.2a4...0.0.2a5)
 
 **Merged pull requests:**
 
-- Update to use client-provided public IP address when available [\#12](https://github.com/NeonGeckoCom/neon-hana/pull/12) ([NeonDaniel](https://github.com/NeonDaniel))
+- Update config documentation and resolve security warning [\#24](https://github.com/NeonGeckoCom/neon-hana/pull/24) ([NeonDaniel](https://github.com/NeonDaniel))
 
-## [0.0.1a7](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.1a7) (2024-01-26)
+## [0.0.2a4](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.2a4) (2024-05-06)
 
-[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.1a6...0.0.1a7)
-
-**Merged pull requests:**
-
-- Add Node data model and Session support [\#11](https://github.com/NeonGeckoCom/neon-hana/pull/11) ([NeonDaniel](https://github.com/NeonDaniel))
-
-## [0.0.1a6](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.1a6) (2024-01-26)
-
-[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.1a5...0.0.1a6)
+[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.2a3...0.0.2a4)
 
 **Merged pull requests:**
 
-- Configurable Authorization Request Limits [\#9](https://github.com/NeonGeckoCom/neon-hana/pull/9) ([NeonDaniel](https://github.com/NeonDaniel))
+- Fix kwarg handling for backend compat. [\#22](https://github.com/NeonGeckoCom/neon-hana/pull/22) ([NeonDaniel](https://github.com/NeonDaniel))
 
-## [0.0.1a5](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.1a5) (2024-01-23)
+## [0.0.2a3](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.2a3) (2024-04-10)
 
-[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.1a4...0.0.1a5)
-
-**Merged pull requests:**
-
-- JWT server cache fix and client response update [\#8](https://github.com/NeonGeckoCom/neon-hana/pull/8) ([NeonDaniel](https://github.com/NeonDaniel))
-
-## [0.0.1a4](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.1a4) (2024-01-22)
-
-[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.1a3...0.0.1a4)
+[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.2a2...0.0.2a3)
 
 **Merged pull requests:**
 
-- Default disable email service with note in docs explaining rationale [\#4](https://github.com/NeonGeckoCom/neon-hana/pull/4) ([NeonDaniel](https://github.com/NeonDaniel))
+- Include email API error responses in HTTP response [\#19](https://github.com/NeonGeckoCom/neon-hana/pull/19) ([NeonDaniel](https://github.com/NeonDaniel))
 
-## [0.0.1a3](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.1a3) (2024-01-22)
+## [0.0.2a2](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.2a2) (2024-04-10)
 
-[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.1a2...0.0.1a3)
+[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.2a1...0.0.2a2)
 
-**Merged pull requests:**
+**Implemented enhancements:**
 
-- Add `assist` route for HTTP requests [\#3](https://github.com/NeonGeckoCom/neon-hana/pull/3) ([NeonDaniel](https://github.com/NeonDaniel))
-
-## [0.0.1a2](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.1a2) (2024-01-19)
-
-[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/885ec6ef0f8ddcaa8127f60730ef7b4011127554...0.0.1a2)
+- \[FEAT\] Weather API Language Support [\#15](https://github.com/NeonGeckoCom/neon-hana/issues/15)
 
 **Merged pull requests:**
 
-- Fix path errors in test build automation [\#2](https://github.com/NeonGeckoCom/neon-hana/pull/2) ([NeonDaniel](https://github.com/NeonDaniel))
-- Initial Implementation [\#1](https://github.com/NeonGeckoCom/neon-hana/pull/1) ([NeonDaniel](https://github.com/NeonDaniel))
+- Add `lang_code` optional param to weather endpoint [\#18](https://github.com/NeonGeckoCom/neon-hana/pull/18) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [0.0.2a1](https://github.com/NeonGeckoCom/neon-hana/tree/0.0.2a1) (2024-04-09)
+
+[Full Changelog](https://github.com/NeonGeckoCom/neon-hana/compare/0.0.1...0.0.2a1)
+
+**Implemented enhancements:**
+
+- \[FEAT\] Stock API region support [\#16](https://github.com/NeonGeckoCom/neon-hana/issues/16)
+
+**Merged pull requests:**
+
+- Support `region` in stock search requests [\#17](https://github.com/NeonGeckoCom/neon-hana/pull/17) ([NeonDaniel](https://github.com/NeonDaniel))
 
 
 

@@ -52,10 +52,17 @@ class MQServiceManager:
         self.sessions_by_id = dict()
 
     @staticmethod
-    def _validate_api_proxy_response(response: dict):
+    def _validate_api_proxy_response(response: dict, query_params: dict):
         if response['status_code'] == 200:
             try:
                 resp = json.loads(response['content'])
+                if query_params.get('service') == "alpha_vantage":
+                    resp['service'] = query_params['service']
+                    if query_params.get("region") and resp.get('bestMatches'):
+                        filtered = [
+                            stock for stock in resp.get("bestMatches")
+                            if stock.get("4. region") == query_params["region"]]
+                        resp['bestMatches'] = filtered
                 if isinstance(resp, dict):
                     return resp
                 # Reverse Geocode API returns a list; reformat that to a dict
@@ -85,9 +92,12 @@ class MQServiceManager:
     def query_api_proxy(self, service_name: str, query_params: dict,
                         timeout: int = 10):
         query_params['service'] = service_name
+        if service_name in ("open_weather_map", "wolfram_alpha"):
+            query_params['units'] = query_params.pop('unit',
+                                                     query_params.get('units'))
         response = send_mq_request("/neon_api", query_params, "neon_api_input",
                                    "neon_api_output", timeout)
-        return self._validate_api_proxy_response(response)
+        return self._validate_api_proxy_response(response, query_params)
 
     def query_llm(self, llm_name: str, query: str, history: List[tuple]):
         response = send_mq_request("/llm", {"query": query,
@@ -112,7 +122,8 @@ class MQServiceManager:
         response = send_mq_request("/neon_emails", request_data,
                                    "neon_emails_input")
         if not response.get("success"):
-            raise APIError(status_code=500, detail="Email failed to send")
+            error = response.get("error") or "Email failed to send"
+            raise APIError(status_code=500, detail=error)
 
     def upload_metric(self, metric_name: str, timestamp: str,
                       metric_data: Dict[str, Any]):
