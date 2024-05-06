@@ -1,5 +1,5 @@
 pyyaml>=5.4,<7.0
-fastapi~=0.95
+fastapi~=0.95,>=0.109.1
 uvicorn~=0.25
 pydantic~=2.5
 pyjwt~=2.8
