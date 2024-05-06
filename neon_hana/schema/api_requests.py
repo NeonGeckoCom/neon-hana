@@ -69,23 +69,27 @@ class StockAPIQuoteRequest(BaseModel):
 
 class GeoAPIRequest(BaseModel):
     address: str
+    lang_code: str = "en"
 
     model_config = {
         "json_schema_extra": {
             "examples": [{
-                        "address": "1100 Bellevue Way NE Bellevue, WA"
+                        "address": "1100 Bellevue Way NE Bellevue, WA",
+                        "lang_code": "en"
                     }]}}
 
 
 class GeoAPIReverseRequest(BaseModel):
     lat: float
     lon: float
+    lang_code: str = "en"
     model_config = {
         "json_schema_extra": {
             "examples": [{
                         "lat": 47.6815,
                         "lon": -122.2087,
-                    }]}}
+                        "lang_code": "en"
+            }]}}
 
 
 class WolframAlphaAPIRequest(BaseModel):

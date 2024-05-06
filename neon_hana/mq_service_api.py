@@ -92,6 +92,7 @@ class MQServiceManager:
     def query_api_proxy(self, service_name: str, query_params: dict,
                         timeout: int = 10):
         query_params['service'] = service_name
+        lang_code = query_params['lang_code']
         response = send_mq_request("/neon_api", query_params, "neon_api_input",
                                    "neon_api_output", timeout)
         return self._validate_api_proxy_response(response, query_params)
