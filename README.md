@@ -13,6 +13,8 @@ User configuration belongs in `diana.yaml`, mounted in the container path
 MQ:
   server: mq.mydomain.com
 hana:
+  server_host: '0.0.0.0'
+  port: 8080
   mq_default_timeout: 10
   access_token_ttl: 86400  # 1 day
   refresh_token_ttl: 604800  # 1 week
