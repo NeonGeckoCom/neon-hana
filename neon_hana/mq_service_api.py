@@ -92,6 +92,9 @@ class MQServiceManager:
     def query_api_proxy(self, service_name: str, query_params: dict,
                         timeout: int = 10):
         query_params['service'] = service_name
+        if service_name in ("open_weather_map", "wolfram_alpha"):
+            query_params['units'] = query_params.pop('unit',
+                                                     query_params.get('units'))
         response = send_mq_request("/neon_api", query_params, "neon_api_input",
                                    "neon_api_output", timeout)
         return self._validate_api_proxy_response(response, query_params)
