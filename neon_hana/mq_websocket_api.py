@@ -25,6 +25,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from asyncio import run, get_event_loop
+from os import makedirs
 from time import time
 from fastapi import WebSocket
 from neon_iris.client import NeonAIClient
@@ -39,7 +40,9 @@ class MQWebsocketAPI(NeonAIClient):
         Creates an MQWebsocketAPI to serve multiple client WS connections.
         """
         mq_config = config.get("MQ") or dict()
-        NeonAIClient.__init__(self, mq_config)
+        config_dir = "/tmp/hana"
+        makedirs(config_dir, exist_ok=True)
+        NeonAIClient.__init__(self, mq_config, config_dir=config_dir)
         self._sessions = dict()
         self._session_lock = RLock()
         self._client = "neon_node_websocket"
