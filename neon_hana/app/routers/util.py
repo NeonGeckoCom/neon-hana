@@ -25,16 +25,19 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from fastapi import APIRouter, Request
-from starlette.datastructures import Headers
+
+from neon_hana.app.dependencies import client_manager
 
 util_route = APIRouter(prefix="/util", tags=["utilities"])
 
 
 @util_route.get("/client_ip")
 async def api_client_ip(request: Request) -> str:
+    client_manager.validate_auth("", request.client.host)
     return request.client.host
 
 
 @util_route.get("/headers")
-async def api_headers(request: Request) -> Headers:
+async def api_headers(request: Request):
+    client_manager.validate_auth("", request.client.host)
     return request.headers
