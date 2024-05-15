@@ -25,13 +25,14 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from fastapi import APIRouter, Request
+from starlette.responses import PlainTextResponse
 
 from neon_hana.app.dependencies import client_manager
 
 util_route = APIRouter(prefix="/util", tags=["utilities"])
 
 
-@util_route.get("/client_ip")
+@util_route.get("/client_ip", response_class=PlainTextResponse)
 async def api_client_ip(request: Request) -> str:
     client_manager.validate_auth("", request.client.host)
     return request.client.host
