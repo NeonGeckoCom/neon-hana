@@ -132,7 +132,7 @@ class ClientManager:
                                                      max_tokens=self._rpm))
         if not self.rate_limiter.consume(origin_ip) and self._rpm > 0:
             raise HTTPException(status_code=429,
-                                detail=f"Requests limited to {self._rpm}/min"
+                                detail=f"Requests limited to {self._rpm}/min "
                                        f"per client connection")
 
         if self._disable_auth:

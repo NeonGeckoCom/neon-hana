@@ -24,23 +24,21 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import uvicorn
-from os import environ
+from fastapi import APIRouter, Request
+from starlette.responses import PlainTextResponse
 
-environ.setdefault("OVOS_CONFIG_BASE_FOLDER", "neon")
-environ.setdefault("OVOS_CONFIG_FILENAME", "diana.yaml")
+from neon_hana.app.dependencies import client_manager
 
-from ovos_config.config import Configuration
-
-from neon_hana.app import create_app
+util_route = APIRouter(prefix="/util", tags=["utilities"])
 
 
-def main():
-    config = Configuration().get("hana", {})
-    app = create_app(config)
-    uvicorn.run(app, host=config.get('server_host', "0.0.0.0"),
-                port=config.get('port', 8080), forwarded_allow_ips="*")
+@util_route.get("/client_ip", response_class=PlainTextResponse)
+async def api_client_ip(request: Request) -> str:
+    client_manager.validate_auth("", request.client.host)
+    return request.client.host
 
 
-if __name__ == "__main__":
-    main()
+@util_route.get("/headers")
+async def api_headers(request: Request):
+    client_manager.validate_auth("", request.client.host)
+    return request.headers
