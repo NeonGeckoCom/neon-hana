@@ -154,6 +154,7 @@ class MQWebsocketAPI(NeonAIClient):
         if message.msg_type == "neon.audio_input.response":
             LOG.info(message.data.get("transcripts"))
         LOG.debug(message.context.get("timing"))
+        run(self.send_to_client(message))
 
     def handle_error_response(self, message: Message):
         """
