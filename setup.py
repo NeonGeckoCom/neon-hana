@@ -74,6 +74,7 @@ setup(
     license='BSD-3-Clause',
     packages=find_packages(),
     install_requires=get_requirements("requirements.txt"),
+    extras_require={"websocket": get_requirements("websocket.txt")},
     zip_safe=True,
     classifiers=[
         'Intended Audience :: Developers',

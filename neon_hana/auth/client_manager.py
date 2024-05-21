@@ -31,8 +31,11 @@ from typing import Dict, Optional
 from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import DecodeError
+from ovos_utils import LOG
 from token_throttler import TokenThrottler, TokenBucket
 from token_throttler.storage import RuntimeStorage
+
+from neon_hana.auth.permissions import ClientPermissions
 
 
 class ClientManager:
@@ -48,9 +51,15 @@ class ClientManager:
         self._rpm = config.get("requests_per_minute", 60)
         self._auth_rpm = config.get("auth_requests_per_minute", 6)
         self._disable_auth = config.get("disable_auth")
+        self._node_username = config.get("node_username")
+        self._node_password = config.get("node_password")
         self._jwt_algo = "HS256"
 
     def _create_tokens(self, encode_data: dict) -> dict:
+        # Permissions were not included in old tokens, allow refreshing with
+        # default permissions
+        encode_data.setdefault("permissions", ClientPermissions().as_dict())
+
         token_expiration = encode_data['expire']
         token = jwt.encode(encode_data, self._access_secret, self._jwt_algo)
         encode_data['expire'] = time() + self._refresh_token_lifetime
@@ -59,13 +68,38 @@ class ClientManager:
         # TODO: Store refresh token on server to allow invalidating clients
         return {"username": encode_data['username'],
                 "client_id": encode_data['client_id'],
+                "permissions": encode_data['permissions'],
                 "access_token": token,
                 "refresh_token": refresh,
                 "expiration": token_expiration}
 
+    def get_permissions(self, client_id: str) -> ClientPermissions:
+        """
+        Get ClientPermissions model for the given client_id
+        @param client_id: Client ID to get permissions for
+        @return: ClientPermissions object for the specified client
+        """
+        if self._disable_auth:
+            LOG.debug("Auth disabled, allow full client permissions")
+            return ClientPermissions(assist=True, backend=True, node=True)
+        if client_id not in self.authorized_clients:
+            LOG.warning(f"{client_id} not known to this server")
+            return ClientPermissions(assist=False, backend=False, node=False)
+        client = self.authorized_clients[client_id]
+        return ClientPermissions(**client.get('permissions', dict()))
+
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None,
-                           origin_ip: str = "127.0.0.1"):
+                           origin_ip: str = "127.0.0.1") -> dict:
+        """
+        Authenticate and Authorize a new client connection with the specified
+        username, password, and origin IP address.
+        @param client_id: Client ID of the connection to auth
+        @param username: Supplied username to authenticate
+        @param password: Supplied password to authenticate
+        @param origin_ip: Origin IP address of request
+        @return: response tokens, permissions, and other metadata
+        """
         if client_id in self.authorized_clients:
             print(f"Using cached client: {self.authorized_clients[client_id]}")
             return self.authorized_clients[client_id]
@@ -84,13 +118,19 @@ class ClientManager:
                                 detail=f"Too many auth requests from: "
                                        f"{origin_ip}. Wait {wait_time}s.")
 
+        node_access = False
         if username != "guest":
             # TODO: Validate password here
             pass
+        if all((self._node_username, username == self._node_username,
+                password == self._node_password)):
+            node_access = True
+        permissions = ClientPermissions(node=node_access)
         expiration = time() + self._access_token_lifetime
         encode_data = {"client_id": client_id,
                        "username": username,
                        "password": password,
+                       "permissions": permissions.as_dict(),
                        "expire": expiration}
         auth = self._create_tokens(encode_data)
         self.authorized_clients[client_id] = auth
@@ -125,6 +165,15 @@ class ClientManager:
         new_auth = self._create_tokens(encode_data)
         return new_auth
 
+    def get_client_id(self, token: str) -> str:
+        """
+        Extract the client_id from a JWT token
+        @param token: JWT token to parse
+        @return: client_id associated with token
+        """
+        auth = jwt.decode(token, self._access_secret, self._jwt_algo)
+        return auth['client_id']
+
     def validate_auth(self, token: str, origin_ip: str) -> bool:
         if not self.rate_limiter.get_all_buckets(origin_ip):
             self.rate_limiter.add_bucket(origin_ip,
@@ -142,6 +191,7 @@ class ClientManager:
             if auth['expire'] < time():
                 self.authorized_clients.pop(auth['client_id'], None)
                 return False
+            self.authorized_clients[auth['client_id']] = auth
             return True
         except DecodeError:
             # Invalid token supplied
