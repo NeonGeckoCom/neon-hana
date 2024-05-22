@@ -34,7 +34,7 @@ class WeatherAPIOnecallResponse(BaseModel):
     timezone: str
     timezone_offset: int
     current: Dict[str, Any]
-    minutely: List[dict]
+    minutely: Optional[List[dict]]
     hourly: List[dict]
     daily: List[dict]
 
