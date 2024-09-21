@@ -114,6 +114,10 @@ class MQWebsocketAPI(NeonAIClient):
                 if user_config:
                     self._sessions[session_id]['user'] = user_config
 
+    def handle_audio_stream(self, audio: bytes, session_id: str):
+        LOG.info(f"Got {len(audio)} bytes from {session_id}")
+        # TODO: Do something with this audio stream
+
     def handle_client_input(self, data: dict, session_id: str):
         """
         Handle some client input data.

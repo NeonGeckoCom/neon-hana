@@ -67,6 +67,27 @@ async def node_v1_endpoint(websocket: WebSocket, token: str):
             disconnect_event.set()
 
 
+@node_route.websocket("/v1/stream")
+async def node_v1_endpoint(websocket: WebSocket, token: str):
+    """
+    Endpoint to handle a stream of raw audio bytes. A client using this endpoint
+    must first establish a connection to the `/v1` endpoint.
+    """
+    client_id = client_manager.get_client_id(token)
+    if not socket_api.get_session(client_id):
+        raise HTTPException(status_code=401,
+                            detail=f"Client not known ({client_id})")
+    await websocket.accept()
+    disconnect_event = Event()
+
+    while not disconnect_event.is_set():
+        try:
+            client_in: bytes = await websocket.receive_bytes()
+            socket_api.handle_audio_stream(client_in, client_id)
+        except WebSocketDisconnect:
+            disconnect_event.set()
+
+
 @node_route.get("/v1/doc")
 async def node_v1_doc(_: Optional[Union[NodeAudioInput, NodeGetStt,
                                         NodeGetTts]]) -> \
