@@ -71,6 +71,20 @@ class MQWebsocketAPI(NeonAIClient):
                                       "socket": ws,
                                       "user": self.user_config}
 
+    def end_session(self, session_id: str):
+        """
+        End a client connection upon WS disconnection
+        """
+        session: Optional[dict] = self._sessions.pop(session_id, None)
+        if not session:
+            LOG.error(f"Ended session is not established {session_id}")
+            return
+        stream: RemoteStreamHandler = session.get('stream')
+        if stream:
+            stream.shutdown()
+            stream.join()
+            LOG.info(f"Ended stream handler for: {session_id}")
+
     def get_session(self, session_id: str) -> dict:
         """
         Get the latest session context for the given session_id.
@@ -245,7 +259,7 @@ class StreamMicrophone(Microphone):
         pass
 
     def stop(self):
-        pass
+        self.queue.put(None)
 
     def read_chunk(self) -> Optional[bytes]:
         return self.queue.get()
@@ -301,6 +315,10 @@ class RemoteStreamHandler(Thread):
 
     def on_chunk(self, chunk: ChunkInfo):
         LOG.debug(f"Chunk: {chunk}")
+
+    def shutdown(self):
+        self.mic.stop()
+        self.voice_loop.stop()
 
 
 class MockTransformers(Mock):

@@ -65,7 +65,7 @@ async def node_v1_endpoint(websocket: WebSocket, token: str):
             socket_api.handle_client_input(client_in, client_id)
         except WebSocketDisconnect:
             disconnect_event.set()
-    # TODO: Delete client from socket_api
+    socket_api.end_session(session_id=client_id)
 
 
 @node_route.websocket("/v1/stream")
