@@ -65,10 +65,11 @@ async def node_v1_endpoint(websocket: WebSocket, token: str):
             socket_api.handle_client_input(client_in, client_id)
         except WebSocketDisconnect:
             disconnect_event.set()
+    # TODO: Delete client from socket_api
 
 
 @node_route.websocket("/v1/stream")
-async def node_v1_endpoint(websocket: WebSocket, token: str):
+async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
     """
     Endpoint to handle a stream of raw audio bytes. A client using this endpoint
     must first establish a connection to the `/v1` endpoint.

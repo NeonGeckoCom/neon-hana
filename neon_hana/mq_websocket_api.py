@@ -25,13 +25,26 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from asyncio import run, get_event_loop
+from base64 import b64encode
 from os import makedirs
+from queue import Queue
 from time import time
+from typing import Optional, Callable
+
 from fastapi import WebSocket
+from mock.mock import Mock
 from neon_iris.client import NeonAIClient
 from ovos_bus_client.message import Message
-from threading import RLock
+from threading import RLock, Thread
+
+from ovos_dinkum_listener.voice_loop import DinkumVoiceLoop
+from ovos_dinkum_listener.voice_loop.hotwords import HotwordContainer
+from ovos_dinkum_listener.voice_loop.voice_loop import ChunkInfo
+from ovos_plugin_manager.templates.microphone import Microphone
+from ovos_plugin_manager.vad import OVOSVADFactory
 from ovos_utils import LOG
+from ovos_utils.fakebus import FakeBus
+from speech_recognition import AudioData
 
 
 class MQWebsocketAPI(NeonAIClient):
@@ -115,8 +128,25 @@ class MQWebsocketAPI(NeonAIClient):
                     self._sessions[session_id]['user'] = user_config
 
     def handle_audio_stream(self, audio: bytes, session_id: str):
-        LOG.info(f"Got {len(audio)} bytes from {session_id}")
-        # TODO: Do something with this audio stream
+        if not self._sessions[session_id].get('stream'):
+            LOG.info(f"starting stream for session {session_id}")
+            audio_queue = Queue()
+            stream = RemoteStreamHandler(StreamMicrophone(audio_queue), session_id,
+                                         audio_callback=self.handle_client_input,
+                                         ww_callback=self.handle_ww_detected)
+            self._sessions[session_id]['stream'] = stream
+            try:
+                stream.start()
+            except RuntimeError:
+                pass
+
+        self._sessions[session_id]['stream'].mic.queue.put(audio)
+
+    def handle_ww_detected(self, ww_context: dict, session_id: str):
+        session = self.get_session(session_id)
+        message = Message("neon.ww_detected", ww_context,
+                          {"session": session})
+        run(self.send_to_client(message))
 
     def handle_client_input(self, data: dict, session_id: str):
         """
@@ -205,3 +235,74 @@ class MQWebsocketAPI(NeonAIClient):
         loop.call_soon_threadsafe(loop.stop)
         LOG.info("Stopped Event Loop")
         super().shutdown()
+
+
+class StreamMicrophone(Microphone):
+    def __init__(self, queue: Queue):
+        self.queue = queue
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def read_chunk(self) -> Optional[bytes]:
+        return self.queue.get()
+
+
+class RemoteStreamHandler(Thread):
+    def __init__(self, mic: StreamMicrophone, session_id: str,
+                 audio_callback: Callable,
+                 ww_callback: Callable, lang: str = "en-us"):
+        Thread.__init__(self)
+        self.session_id = session_id
+        self.ww_callback = ww_callback
+        self.audio_callback = audio_callback
+        self.bus = FakeBus()
+        self.mic = mic
+        self.lang = lang
+        self.hotwords = HotwordContainer(self.bus)
+        self.hotwords.load_hotword_engines()
+        self.vad = OVOSVADFactory.create()
+        self.voice_loop = DinkumVoiceLoop(mic=self.mic,
+                                          vad=self.vad,
+                                          hotwords=self.hotwords,
+                                          listenword_audio_callback=self.on_hotword,
+                                          hotword_audio_callback=self.on_hotword,
+                                          stopword_audio_callback=self.on_hotword,
+                                          wakeupword_audio_callback=self.on_hotword,
+                                          stt_audio_callback=self.on_audio,
+                                          stt=Mock(),
+                                          fallback_stt=Mock(),
+                                          transformers=MockTransformers(),
+                                          chunk_callback=self.on_chunk,
+                                          speech_seconds=0.5,
+                                          num_hotword_keep_chunks=0,
+                                          num_stt_rewind_chunks=0)
+
+    def run(self):
+        self.voice_loop.start()
+        self.voice_loop.run()
+
+    def on_hotword(self, audio_bytes: bytes, context: dict):
+        self.lang = context.get("stt_lang") or self.lang
+        LOG.info(f"Hotword: {context}")
+        self.ww_callback(context, self.session_id)
+
+    def on_audio(self, audio_bytes: bytes, context: dict):
+        LOG.info(f"Audio: {context}")
+        audio_data = AudioData(audio_bytes, self.mic.sample_rate,
+                               self.mic.sample_width).get_wav_data()
+        audio_data = b64encode(audio_data).decode("utf-8")
+        callback_data = {"type": "neon.audio_input",
+                         "data": {"audio_data": audio_data, "lang": self.lang}}
+        self.audio_callback(callback_data, self.session_id)
+
+    def on_chunk(self, chunk: ChunkInfo):
+        LOG.debug(f"Chunk: {chunk}")
+
+
+class MockTransformers(Mock):
+    def transform(self, chunk):
+        return chunk, dict()
