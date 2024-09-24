@@ -29,3 +29,5 @@ hana:
   stt_max_length_encoded: 500000
   tts_max_words: 128
   enable_email: False
+vad:
+  module: ovos-vad-plugin-webrtcvad
