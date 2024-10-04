@@ -75,7 +75,7 @@ setup(
     packages=find_packages(),
     install_requires=get_requirements("requirements.txt"),
     extras_require={"websocket": get_requirements("websocket.txt"),
-                    "steaming": get_requirements("streaming.txt")},
+                    "streaming": get_requirements("streaming.txt")},
     zip_safe=True,
     classifiers=[
         'Intended Audience :: Developers',

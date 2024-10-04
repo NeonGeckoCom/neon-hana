@@ -60,6 +60,28 @@ class MQWebsocketAPI(NeonAIClient):
                                       "socket": ws,
                                       "user": self.user_config}
 
+    def new_stream(self, ws: WebSocket, session_id: str):
+        """
+        Establish a new streaming connection, associated with an existing session.
+        @param ws: Client WebSocket that handles byte audio
+        @param session_id: Session ID the websocket is associated with
+        """
+        if session_id not in self._sessions:
+            raise RuntimeError(f"Stream cannot be established for {session_id}")
+        from neon_hana.streaming_client import RemoteStreamHandler, StreamMicrophone
+        if not self._sessions[session_id].get('stream'):
+            LOG.info(f"starting stream for session {session_id}")
+            audio_queue = Queue()
+            stream = RemoteStreamHandler(StreamMicrophone(audio_queue), session_id,
+                                         input_audio_callback=self.handle_client_input,
+                                         ww_callback=self.handle_ww_detected,
+                                         client_socket=ws)
+            self._sessions[session_id]['stream'] = stream
+            try:
+                stream.start()
+            except RuntimeError:
+                pass
+
     def end_session(self, session_id: str):
         """
         End a client connection upon WS disconnection
@@ -130,20 +152,7 @@ class MQWebsocketAPI(NeonAIClient):
                 if user_config:
                     self._sessions[session_id]['user'] = user_config
 
-    def handle_audio_stream(self, audio: bytes, session_id: str):
-        from neon_hana.streaming_client import RemoteStreamHandler, StreamMicrophone
-        if not self._sessions[session_id].get('stream'):
-            LOG.info(f"starting stream for session {session_id}")
-            audio_queue = Queue()
-            stream = RemoteStreamHandler(StreamMicrophone(audio_queue), session_id,
-                                         audio_callback=self.handle_client_input,
-                                         ww_callback=self.handle_ww_detected)
-            self._sessions[session_id]['stream'] = stream
-            try:
-                stream.start()
-            except RuntimeError:
-                pass
-
+    def handle_audio_input_stream(self, audio: bytes, session_id: str):
         self._sessions[session_id]['stream'].mic.queue.put(audio)
 
     def handle_ww_detected(self, ww_context: dict, session_id: str):
@@ -172,13 +181,16 @@ class MQWebsocketAPI(NeonAIClient):
         Handle a Neon text+audio response to a user input.
         @param message: `klat.response` message from Neon
         """
-        self._update_session_data(message)
-        run(self.send_to_client(message))
-        session_id = message.context.get('session', {}).get('session_id')
-        if self._sessions.get(session_id, {}).get('stream'):
-            # TODO: stream response audio to streaming socket
-            pass
-        LOG.debug(message.context.get("timing"))
+        try:
+            self._update_session_data(message)
+            run(self.send_to_client(message))
+            session_id = message.context.get('session', {}).get('session_id')
+            if stream := self._sessions.get(session_id, {}).get('stream'):
+                LOG.info("Stream response audio")
+                stream.on_response_audio(message.data)
+            LOG.debug(message.context.get("timing"))
+        except Exception as e:
+            LOG.exception(e)
 
     def handle_complete_intent_failure(self, message: Message):
         """

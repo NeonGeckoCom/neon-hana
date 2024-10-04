@@ -1,4 +1,6 @@
-from base64 import b64encode
+import io
+from asyncio import run
+from base64 import b64encode, b64decode
 from typing import Optional, Callable
 from mock.mock import Mock
 from threading import Thread
@@ -12,6 +14,7 @@ from ovos_plugin_manager.vad import OVOSVADFactory
 from ovos_utils.fakebus import FakeBus
 from speech_recognition import AudioData
 from ovos_utils import LOG
+from starlette.websockets import WebSocket
 
 
 class StreamMicrophone(Microphone):
@@ -30,12 +33,14 @@ class StreamMicrophone(Microphone):
 
 class RemoteStreamHandler(Thread):
     def __init__(self, mic: StreamMicrophone, session_id: str,
-                 audio_callback: Callable,
+                 input_audio_callback: Callable,
+                 client_socket: WebSocket,
                  ww_callback: Callable, lang: str = "en-us"):
         Thread.__init__(self)
         self.session_id = session_id
         self.ww_callback = ww_callback
-        self.audio_callback = audio_callback
+        self.input_audio_callback = input_audio_callback
+        self.client_socket = client_socket
         self.bus = FakeBus()
         self.mic = mic
         self.lang = lang
@@ -49,7 +54,7 @@ class RemoteStreamHandler(Thread):
                                           hotword_audio_callback=self.on_hotword,
                                           stopword_audio_callback=self.on_hotword,
                                           wakeupword_audio_callback=self.on_hotword,
-                                          stt_audio_callback=self.on_audio,
+                                          stt_audio_callback=self.on_input_audio,
                                           stt=Mock(transcribe=Mock(return_value=[])),
                                           fallback_stt=Mock(transcribe=Mock(return_value=[])),
                                           transformers=MockTransformers(),
@@ -67,14 +72,27 @@ class RemoteStreamHandler(Thread):
         LOG.info(f"Hotword: {context}")
         self.ww_callback(context, self.session_id)
 
-    def on_audio(self, audio_bytes: bytes, context: dict):
+    def on_input_audio(self, audio_bytes: bytes, context: dict):
         LOG.info(f"Audio: {context}")
         audio_data = AudioData(audio_bytes, self.mic.sample_rate,
                                self.mic.sample_width).get_wav_data()
         audio_data = b64encode(audio_data).decode("utf-8")
         callback_data = {"type": "neon.audio_input",
                          "data": {"audio_data": audio_data, "lang": self.lang}}
-        self.audio_callback(callback_data, self.session_id)
+        self.input_audio_callback(callback_data, self.session_id)
+
+    def on_response_audio(self, data: dict):
+        async def _send_bytes(audio_bytes: bytes):
+            await self.client_socket.send_bytes(audio_bytes)
+
+        i = 0
+        for lang_response in data.get('responses', {}).values():
+            for encoded_audio in lang_response.get('audio', {}).values():
+                i += 1
+                wav_audio_bytes = b64decode(encoded_audio)
+                LOG.info(f"Sending {len(wav_audio_bytes)} bytes of audio")
+                run(_send_bytes(wav_audio_bytes))
+        LOG.info(f"Sent {i} binary audio response")
 
     def on_chunk(self, chunk: ChunkInfo):
         LOG.debug(f"Chunk: {chunk}")

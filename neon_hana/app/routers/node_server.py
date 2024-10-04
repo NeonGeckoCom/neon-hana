@@ -26,6 +26,7 @@
 
 from asyncio import Event
 from signal import signal, SIGINT
+from time import sleep
 from typing import Optional, Union
 
 from fastapi import APIRouter, WebSocket, HTTPException, Request
@@ -75,16 +76,24 @@ async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
     must first establish a connection to the `/v1` endpoint.
     """
     client_id = client_manager.get_client_id(token)
+
+    # Handle problem clients that don't explicitly wait for the Node WS to
+    # connect before starting a stream
+    retries = 0
+    while not socket_api.get_session(client_id) and retries < 3:
+        sleep(1)
+        retries += 1
     if not socket_api.get_session(client_id):
         raise HTTPException(status_code=401,
                             detail=f"Client not known ({client_id})")
+
     await websocket.accept()
     disconnect_event = Event()
-
+    socket_api.new_stream(websocket, client_id)
     while not disconnect_event.is_set():
         try:
             client_in: bytes = await websocket.receive_bytes()
-            socket_api.handle_audio_stream(client_in, client_id)
+            socket_api.handle_audio_input_stream(client_in, client_id)
         except WebSocketDisconnect:
             disconnect_event.set()
 
