@@ -1,7 +1,2 @@
 neon-iris~=0.1,>=0.1.1a5
 websockets~=12.0
-mock~=5.0
-ovos-dinkum-listener~=0.1
-ovos-vad-plugin-webrtcvad
-#ovos-ww-plugin-pocketsphinx
-ovos-ww-plugin-vosk

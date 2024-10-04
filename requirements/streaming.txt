@@ -1,0 +1,5 @@
+mock~=5.0
+ovos-dinkum-listener~=0.1
+ovos-vad-plugin-webrtcvad
+#ovos-ww-plugin-pocketsphinx
+ovos-ww-plugin-vosk

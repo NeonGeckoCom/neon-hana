@@ -14,6 +14,6 @@ COPY docker_overlay/ /
 WORKDIR /app
 COPY . /app
 
-RUN pip install /app[websocket]
+RUN pip install /app[websocket,streaming]
 
 CMD ["python3", "/app/neon_hana/app/__main__.py"]
