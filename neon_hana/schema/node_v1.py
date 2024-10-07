@@ -122,3 +122,33 @@ class NodeGetTtsResponse(BaseModel):
     msg_type: str = "neon.get_tts.response"
     data: KlatResponseData
     context: dict
+
+
+class CoreWWDetected(BaseModel):
+    msg_type: str = "neon.ww_detected"
+    data: dict
+    context: dict
+
+
+class CoreIntentFailure(BaseModel):
+    msg_type: str = "complete.intent.failure"
+    data: dict
+    context: dict
+
+
+class CoreErrorResponse(BaseModel):
+    msg_type: str = "klat.error"
+    data: dict
+    context: dict
+
+
+class CoreClearData(BaseModel):
+    msg_type: str = "neon.clear_data"
+    data: dict
+    context: dict
+
+
+class CoreAlertExpired(BaseModel):
+    msg_type: str = "neon.alert_expired"
+    data: dict
+    context: dict

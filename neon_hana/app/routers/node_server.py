@@ -39,7 +39,9 @@ from neon_hana.schema.node_v1 import (NodeAudioInput, NodeGetStt,
                                       NodeGetTts, NodeKlatResponse,
                                       NodeAudioInputResponse,
                                       NodeGetSttResponse,
-                                      NodeGetTtsResponse)
+                                      NodeGetTtsResponse, CoreWWDetected,
+                                      CoreIntentFailure, CoreErrorResponse,
+                                      CoreClearData, CoreAlertExpired)
 node_route = APIRouter(prefix="/node", tags=["node"])
 
 socket_api = MQWebsocketAPI(config)
@@ -98,11 +100,15 @@ async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
 async def node_v1_doc(_: Optional[Union[NodeAudioInput, NodeGetStt,
                                         NodeGetTts]]) -> \
         Optional[Union[NodeKlatResponse, NodeAudioInputResponse,
-                       NodeGetSttResponse, NodeGetTtsResponse]]:
+                       NodeGetSttResponse, NodeGetTtsResponse,
+                       CoreWWDetected, CoreIntentFailure, CoreErrorResponse,
+                       CoreClearData, CoreAlertExpired]]:
     """
     The node endpoint (`/node/v1`) accepts and returns JSON objects representing
     Messages. All inputs and responses will contain keys:
-    `msg_type`, `data`, `context`.
+    `msg_type`, `data`, `context`. Only the inputs and responses documented here
+    are explicitly supported. Other messages sent or received on this socket are
+    not guaranteed to be stable.
     """
     pass
 
