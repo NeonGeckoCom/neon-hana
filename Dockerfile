@@ -7,7 +7,7 @@ ENV OVOS_CONFIG_BASE_FOLDER neon
 ENV OVOS_CONFIG_FILENAME diana.yaml
 ENV XDG_CONFIG_HOME /config
 
-RUN apt update && apt install -y swig gcc libpulse-dev
+RUN apt update && apt install -y swig gcc libpulse-dev portaudio19-dev
 
 COPY docker_overlay/ /
 
