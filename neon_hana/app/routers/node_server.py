@@ -85,15 +85,23 @@ async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
         raise HTTPException(status_code=401,
                             detail=f"Client not known ({client_id})")
 
-    await websocket.accept()
-    disconnect_event = Event()
-    socket_api.new_stream(websocket, client_id)
-    while not disconnect_event.is_set():
-        try:
-            client_in: bytes = await websocket.receive_bytes()
-            socket_api.handle_audio_input_stream(client_in, client_id)
-        except WebSocketDisconnect:
-            disconnect_event.set()
+    if not client_manager.check_connect_stream():
+        raise HTTPException(status_code=503,
+                            detail=f"Server is not accepting any more streams")
+    try:
+        await websocket.accept()
+        disconnect_event = Event()
+        socket_api.new_stream(websocket, client_id)
+        while not disconnect_event.is_set():
+            try:
+                client_in: bytes = await websocket.receive_bytes()
+                socket_api.handle_audio_input_stream(client_in, client_id)
+            except WebSocketDisconnect:
+                disconnect_event.set()
+    except Exception as e:
+        print(e)
+    finally:
+        client_manager.disconnect_stream()
 
 
 @node_route.get("/v1/doc")

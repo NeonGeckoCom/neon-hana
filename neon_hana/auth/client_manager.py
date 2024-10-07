@@ -23,6 +23,7 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+from threading import Lock
 
 import jwt
 
@@ -53,7 +54,10 @@ class ClientManager:
         self._disable_auth = config.get("disable_auth")
         self._node_username = config.get("node_username")
         self._node_password = config.get("node_password")
+        self._max_streaming_clients = config.get("max_streaming_clients")
         self._jwt_algo = "HS256"
+        self._connected_streams = 0
+        self._stream_check_lock = Lock()
 
     def _create_tokens(self, encode_data: dict) -> dict:
         # Permissions were not included in old tokens, allow refreshing with
@@ -87,6 +91,26 @@ class ClientManager:
             return ClientPermissions(assist=False, backend=False, node=False)
         client = self.authorized_clients[client_id]
         return ClientPermissions(**client.get('permissions', dict()))
+
+    def check_connect_stream(self) -> bool:
+        """
+        Check if a new stream is allowed
+        """
+        with self._stream_check_lock:
+            if not isinstance(self._max_streaming_clients, int) or \
+                    self._max_streaming_clients is False or \
+                    self._max_streaming_clients < 0:
+                self._connected_streams += 1
+                return True
+            if self._connected_streams >= self._max_streaming_clients:
+                LOG.warning(f"No more streams allowed ({self._connected_streams})")
+                return False
+            self._connected_streams += 1
+            return True
+
+    def disconnect_stream(self):
+        with self._stream_check_lock:
+            self._connected_streams -= 1
 
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None,
