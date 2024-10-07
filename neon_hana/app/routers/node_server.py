@@ -29,7 +29,7 @@ from signal import signal, SIGINT
 from time import sleep
 from typing import Optional, Union
 
-from fastapi import APIRouter, WebSocket, HTTPException, Request
+from fastapi import APIRouter, WebSocket, HTTPException
 from starlette.websockets import WebSocketDisconnect
 
 from neon_hana.app.dependencies import config, client_manager
@@ -71,10 +71,6 @@ async def node_v1_endpoint(websocket: WebSocket, token: str):
 
 @node_route.websocket("/v1/stream")
 async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
-    """
-    Endpoint to handle a stream of raw audio bytes. A client using this endpoint
-    must first establish a connection to the `/v1` endpoint.
-    """
     client_id = client_manager.get_client_id(token)
 
     # Handle problem clients that don't explicitly wait for the Node WS to
@@ -103,4 +99,28 @@ async def node_v1_doc(_: Optional[Union[NodeAudioInput, NodeGetStt,
                                         NodeGetTts]]) -> \
         Optional[Union[NodeKlatResponse, NodeAudioInputResponse,
                        NodeGetSttResponse, NodeGetTtsResponse]]:
+    """
+    The node endpoint (`/node/v1`) accepts and returns JSON objects representing
+    Messages. All inputs and responses will contain keys:
+    `msg_type`, `data`, `context`.
+    """
+    pass
+
+
+@node_route.get("/v1/stream/doc")
+async def node_v1_stream_doc():
+    """
+    The stream endpoint accepts input audio as raw bytes. It expects inputs to
+    have:
+        - sample_rate=16000
+        - sample_width=2
+        - sample_channels=1
+        - chunk_size=4096
+
+    Response audio is WAV audio as raw bytes, with each message containing one
+    full audio file. A client should queue all responses for playback.
+
+    Any client accessing the stream endpoint (`/node/v1/stream`), must first
+    establish a connection to the node endpoint (`/node/v1`).
+    """
     pass
