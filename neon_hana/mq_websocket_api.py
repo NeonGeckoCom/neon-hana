@@ -27,13 +27,19 @@
 from asyncio import run, get_event_loop
 from os import makedirs
 from queue import Queue
-from time import time
+from time import time, sleep
 from typing import Optional
 from fastapi import WebSocket
 from neon_iris.client import NeonAIClient
 from ovos_bus_client.message import Message
 from threading import RLock
 from ovos_utils import LOG
+
+
+class ClientNotKnown(RuntimeError):
+    """
+    Exception raised when a client tries to do something before authenticating
+    """
 
 
 class MQWebsocketAPI(NeonAIClient):
@@ -66,27 +72,34 @@ class MQWebsocketAPI(NeonAIClient):
         @param ws: Client WebSocket that handles byte audio
         @param session_id: Session ID the websocket is associated with
         """
-        if session_id not in self._sessions:
-            raise RuntimeError(f"Stream cannot be established for {session_id}")
-        from neon_hana.streaming_client import RemoteStreamHandler, StreamMicrophone
-        if not self._sessions[session_id].get('stream'):
-            LOG.info(f"starting stream for session {session_id}")
-            audio_queue = Queue()
-            stream = RemoteStreamHandler(StreamMicrophone(audio_queue), session_id,
-                                         input_audio_callback=self.handle_client_input,
-                                         ww_callback=self.handle_ww_detected,
-                                         client_socket=ws)
-            self._sessions[session_id]['stream'] = stream
-            try:
-                stream.start()
-            except RuntimeError:
-                pass
+        timeout = time() + 5
+        while session_id not in self._sessions and time() < timeout:
+            # Handle problem clients that don't explicitly wait for the Node WS
+            # to connect before starting a stream
+            sleep(1)
+        with self._session_lock:
+            if session_id not in self._sessions:
+                raise ClientNotKnown(f"Stream cannot be established for {session_id}")
+            from neon_hana.streaming_client import RemoteStreamHandler, StreamMicrophone
+            if not self._sessions[session_id].get('stream'):
+                LOG.info(f"starting stream for session {session_id}")
+                audio_queue = Queue()
+                stream = RemoteStreamHandler(StreamMicrophone(audio_queue), session_id,
+                                             input_audio_callback=self.handle_client_input,
+                                             ww_callback=self.handle_ww_detected,
+                                             client_socket=ws)
+                self._sessions[session_id]['stream'] = stream
+                try:
+                    stream.start()
+                except RuntimeError:
+                    pass
 
     def end_session(self, session_id: str):
         """
         End a client connection upon WS disconnection
         """
-        session: Optional[dict] = self._sessions.pop(session_id, None)
+        with self._session_lock:
+            session: Optional[dict] = self._sessions.pop(session_id, None)
         if not session:
             LOG.error(f"Ended session is not established {session_id}")
             return

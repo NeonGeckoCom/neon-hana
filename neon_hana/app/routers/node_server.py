@@ -34,7 +34,7 @@ from ovos_utils import LOG
 from starlette.websockets import WebSocketDisconnect
 
 from neon_hana.app.dependencies import config, client_manager
-from neon_hana.mq_websocket_api import MQWebsocketAPI
+from neon_hana.mq_websocket_api import MQWebsocketAPI, ClientNotKnown
 
 from neon_hana.schema.node_v1 import (NodeAudioInput, NodeGetStt,
                                       NodeGetTts, NodeKlatResponse,
@@ -76,16 +76,6 @@ async def node_v1_endpoint(websocket: WebSocket, token: str):
 async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
     client_id = client_manager.get_client_id(token)
 
-    # Handle problem clients that don't explicitly wait for the Node WS to
-    # connect before starting a stream
-    retries = 0
-    while not socket_api.get_session(client_id) and retries < 3:
-        sleep(1)
-        retries += 1
-    if not socket_api.get_session(client_id):
-        raise HTTPException(status_code=401,
-                            detail=f"Client not known ({client_id})")
-
     if not client_manager.check_connect_stream():
         raise HTTPException(status_code=503,
                             detail=f"Server is not accepting any more streams")
@@ -99,8 +89,12 @@ async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
                 socket_api.handle_audio_input_stream(client_in, client_id)
             except WebSocketDisconnect:
                 disconnect_event.set()
-    except Exception as e:
+    except ClientNotKnown as e:
         LOG.error(e)
+        raise HTTPException(status_code=401,
+                            detail=f"Client not known ({client_id})")
+    except Exception as e:
+        LOG.exception(e)
     finally:
         client_manager.disconnect_stream()
 
