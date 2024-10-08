@@ -30,6 +30,7 @@ from time import sleep
 from typing import Optional, Union
 
 from fastapi import APIRouter, WebSocket, HTTPException
+from ovos_utils import LOG
 from starlette.websockets import WebSocketDisconnect
 
 from neon_hana.app.dependencies import config, client_manager
@@ -99,7 +100,7 @@ async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
             except WebSocketDisconnect:
                 disconnect_event.set()
     except Exception as e:
-        print(e)
+        LOG.error(e)
     finally:
         client_manager.disconnect_stream()
 

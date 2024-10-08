@@ -92,7 +92,7 @@ class RemoteStreamHandler(Thread):
                 wav_audio_bytes = b64decode(encoded_audio)
                 LOG.info(f"Sending {len(wav_audio_bytes)} bytes of audio")
                 run(_send_bytes(wav_audio_bytes))
-        LOG.info(f"Sent {i} binary audio response")
+        LOG.info(f"Sent {i} binary audio response(s)")
 
     def on_chunk(self, chunk: ChunkInfo):
         LOG.debug(f"Chunk: {chunk}")
