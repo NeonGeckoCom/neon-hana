@@ -26,19 +26,23 @@
 
 from asyncio import Event
 from signal import signal, SIGINT
+from time import sleep
 from typing import Optional, Union
 
-from fastapi import APIRouter, WebSocket, HTTPException, Request
+from fastapi import APIRouter, WebSocket, HTTPException
+from ovos_utils import LOG
 from starlette.websockets import WebSocketDisconnect
 
 from neon_hana.app.dependencies import config, client_manager
-from neon_hana.mq_websocket_api import MQWebsocketAPI
+from neon_hana.mq_websocket_api import MQWebsocketAPI, ClientNotKnown
 
 from neon_hana.schema.node_v1 import (NodeAudioInput, NodeGetStt,
                                       NodeGetTts, NodeKlatResponse,
                                       NodeAudioInputResponse,
                                       NodeGetSttResponse,
-                                      NodeGetTtsResponse)
+                                      NodeGetTtsResponse, CoreWWDetected,
+                                      CoreIntentFailure, CoreErrorResponse,
+                                      CoreClearData, CoreAlertExpired)
 node_route = APIRouter(prefix="/node", tags=["node"])
 
 socket_api = MQWebsocketAPI(config)
@@ -65,11 +69,67 @@ async def node_v1_endpoint(websocket: WebSocket, token: str):
             socket_api.handle_client_input(client_in, client_id)
         except WebSocketDisconnect:
             disconnect_event.set()
+    socket_api.end_session(session_id=client_id)
+
+
+@node_route.websocket("/v1/stream")
+async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
+    client_id = client_manager.get_client_id(token)
+
+    if not client_manager.check_connect_stream():
+        raise HTTPException(status_code=503,
+                            detail=f"Server is not accepting any more streams")
+    try:
+        await websocket.accept()
+        disconnect_event = Event()
+        socket_api.new_stream(websocket, client_id)
+        while not disconnect_event.is_set():
+            try:
+                client_in: bytes = await websocket.receive_bytes()
+                socket_api.handle_audio_input_stream(client_in, client_id)
+            except WebSocketDisconnect:
+                disconnect_event.set()
+    except ClientNotKnown as e:
+        LOG.error(e)
+        raise HTTPException(status_code=401,
+                            detail=f"Client not known ({client_id})")
+    except Exception as e:
+        LOG.exception(e)
+    finally:
+        client_manager.disconnect_stream()
 
 
 @node_route.get("/v1/doc")
 async def node_v1_doc(_: Optional[Union[NodeAudioInput, NodeGetStt,
                                         NodeGetTts]]) -> \
         Optional[Union[NodeKlatResponse, NodeAudioInputResponse,
-                       NodeGetSttResponse, NodeGetTtsResponse]]:
+                       NodeGetSttResponse, NodeGetTtsResponse,
+                       CoreWWDetected, CoreIntentFailure, CoreErrorResponse,
+                       CoreClearData, CoreAlertExpired]]:
+    """
+    The node endpoint (`/node/v1`) accepts and returns JSON objects representing
+    Messages. All inputs and responses will contain keys:
+    `msg_type`, `data`, `context`. Only the inputs and responses documented here
+    are explicitly supported. Other messages sent or received on this socket are
+    not guaranteed to be stable.
+    """
+    pass
+
+
+@node_route.get("/v1/stream/doc")
+async def node_v1_stream_doc():
+    """
+    The stream endpoint accepts input audio as raw bytes. It expects inputs to
+    have:
+        - sample_rate=16000
+        - sample_width=2
+        - sample_channels=1
+        - chunk_size=4096
+
+    Response audio is WAV audio as raw bytes, with each message containing one
+    full audio file. A client should queue all responses for playback.
+
+    Any client accessing the stream endpoint (`/node/v1/stream`), must first
+    establish a connection to the node endpoint (`/node/v1`).
+    """
     pass

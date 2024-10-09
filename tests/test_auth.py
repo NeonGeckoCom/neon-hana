@@ -202,3 +202,33 @@ class TestClientManager(unittest.TestCase):
         self.assertFalse(any([v for v in restricted_perms.as_dict().values()]))
         self.assertIsInstance(permissive_perms.as_dict(), dict)
         self.assertTrue(all([v for v in permissive_perms.as_dict().values()]))
+
+    def test_stream_connections(self):
+        # Test configured maximum
+        self.client_manager._max_streaming_clients = 1
+        self.assertTrue(self.client_manager.check_connect_stream())
+        self.assertEqual(self.client_manager._connected_streams, 1)
+        self.assertFalse(self.client_manager.check_connect_stream())
+        self.assertFalse(self.client_manager.check_connect_stream())
+        self.assertEqual(self.client_manager._connected_streams, 1)
+        self.client_manager.disconnect_stream()
+        self.assertEqual(self.client_manager._connected_streams, 0)
+
+        # Test explicitly disabled streaming
+        self.client_manager._max_streaming_clients = 0
+        self.assertFalse(self.client_manager.check_connect_stream())
+
+        # Test unlimited clients
+        self.client_manager._max_streaming_clients = None
+        self.assertTrue(self.client_manager.check_connect_stream())
+        self.assertTrue(self.client_manager.check_connect_stream())
+        self.assertTrue(self.client_manager.check_connect_stream())
+        self.assertEqual(self.client_manager._connected_streams, 3)
+
+        self.client_manager._max_streaming_clients = -1
+        self.assertTrue(self.client_manager.check_connect_stream())
+        self.assertEqual(self.client_manager._connected_streams, 4)
+
+        self.client_manager._max_streaming_clients = False
+        self.assertTrue(self.client_manager.check_connect_stream())
+        self.assertEqual(self.client_manager._connected_streams, 5)

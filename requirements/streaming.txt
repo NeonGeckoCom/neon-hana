@@ -1,0 +1,9 @@
+mock~=5.0
+ovos-dinkum-listener~=0.1
+ovos-vad-plugin-webrtcvad~=0.0.1
+ovos-ww-plugin-pocketsphinx~=0.1
+ovos-ww-plugin-vosk~=0.1
+ovos-ww-plugin-precise-lite[tflite]~=0.1
+ovos-ww-plugin-precise~=0.1
+# TODO: numpy patching tflite plugin compat. issue https://github.com/OpenVoiceOS/ovos-ww-plugin-precise-lite/pull/8
+numpy~=1.0

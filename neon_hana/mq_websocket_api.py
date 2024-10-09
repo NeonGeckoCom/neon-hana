@@ -26,12 +26,20 @@
 
 from asyncio import run, get_event_loop
 from os import makedirs
-from time import time
+from queue import Queue
+from time import time, sleep
+from typing import Optional
 from fastapi import WebSocket
 from neon_iris.client import NeonAIClient
 from ovos_bus_client.message import Message
 from threading import RLock
 from ovos_utils import LOG
+
+
+class ClientNotKnown(RuntimeError):
+    """
+    Exception raised when a client tries to do something before authenticating
+    """
 
 
 class MQWebsocketAPI(NeonAIClient):
@@ -57,6 +65,49 @@ class MQWebsocketAPI(NeonAIClient):
         self._sessions[session_id] = {"session": {"session_id": session_id},
                                       "socket": ws,
                                       "user": self.user_config}
+
+    def new_stream(self, ws: WebSocket, session_id: str):
+        """
+        Establish a new streaming connection, associated with an existing session.
+        @param ws: Client WebSocket that handles byte audio
+        @param session_id: Session ID the websocket is associated with
+        """
+        timeout = time() + 5
+        while session_id not in self._sessions and time() < timeout:
+            # Handle problem clients that don't explicitly wait for the Node WS
+            # to connect before starting a stream
+            sleep(1)
+        with self._session_lock:
+            if session_id not in self._sessions:
+                raise ClientNotKnown(f"Stream cannot be established for {session_id}")
+            from neon_hana.streaming_client import RemoteStreamHandler, StreamMicrophone
+            if not self._sessions[session_id].get('stream'):
+                LOG.info(f"starting stream for session {session_id}")
+                audio_queue = Queue()
+                stream = RemoteStreamHandler(StreamMicrophone(audio_queue), session_id,
+                                             input_audio_callback=self.handle_client_input,
+                                             ww_callback=self.handle_ww_detected,
+                                             client_socket=ws)
+                self._sessions[session_id]['stream'] = stream
+                try:
+                    stream.start()
+                except RuntimeError:
+                    pass
+
+    def end_session(self, session_id: str):
+        """
+        End a client connection upon WS disconnection
+        """
+        with self._session_lock:
+            session: Optional[dict] = self._sessions.pop(session_id, None)
+        if not session:
+            LOG.error(f"Ended session is not established {session_id}")
+            return
+        stream = session.get('stream')
+        if stream:
+            stream.shutdown()
+            stream.join()
+            LOG.info(f"Ended stream handler for: {session_id}")
 
     def get_session(self, session_id: str) -> dict:
         """
@@ -114,6 +165,15 @@ class MQWebsocketAPI(NeonAIClient):
                 if user_config:
                     self._sessions[session_id]['user'] = user_config
 
+    def handle_audio_input_stream(self, audio: bytes, session_id: str):
+        self._sessions[session_id]['stream'].mic.queue.put(audio)
+
+    def handle_ww_detected(self, ww_context: dict, session_id: str):
+        session = self.get_session(session_id)
+        message = Message("neon.ww_detected", ww_context,
+                          {"session": session})
+        run(self.send_to_client(message))
+
     def handle_client_input(self, data: dict, session_id: str):
         """
         Handle some client input data.
@@ -134,9 +194,16 @@ class MQWebsocketAPI(NeonAIClient):
         Handle a Neon text+audio response to a user input.
         @param message: `klat.response` message from Neon
         """
-        self._update_session_data(message)
-        run(self.send_to_client(message))
-        LOG.debug(message.context.get("timing"))
+        try:
+            self._update_session_data(message)
+            run(self.send_to_client(message))
+            session_id = message.context.get('session', {}).get('session_id')
+            if stream := self._sessions.get(session_id, {}).get('stream'):
+                LOG.info("Stream response audio")
+                stream.on_response_audio(message.data)
+            LOG.debug(message.context.get("timing"))
+        except Exception as e:
+            LOG.exception(e)
 
     def handle_complete_intent_failure(self, message: Message):
         """
