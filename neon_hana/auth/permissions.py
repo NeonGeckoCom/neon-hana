@@ -24,7 +24,8 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict
+from pydantic.dataclasses import dataclass
 
 
 @dataclass
