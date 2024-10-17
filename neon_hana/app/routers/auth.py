@@ -24,9 +24,9 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 
-from neon_hana.app.dependencies import client_manager
+from neon_hana.app.dependencies import client_manager, jwt_bearer
 from neon_hana.auth.permissions import ClientPermissions
 from neon_hana.schema.auth_requests import *
 
@@ -45,6 +45,6 @@ async def check_refresh(request: RefreshRequest) -> AuthenticationResponse:
     return client_manager.check_refresh_request(**dict(request))
 
 
-@auth_route.post("/permissions")
+@auth_route.post("/permissions", dependencies=[Depends(jwt_bearer)])
 async def check_permissions(request: PermissionsRequest) -> ClientPermissions:
     return client_manager.get_permissions(request.client_id)

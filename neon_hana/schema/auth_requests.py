@@ -68,5 +68,4 @@ class RefreshRequest(BaseModel):
 
 
 class PermissionsRequest(BaseModel):
-    access_token: str
     client_id: str
