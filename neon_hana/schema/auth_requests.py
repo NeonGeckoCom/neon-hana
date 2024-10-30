@@ -30,6 +30,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from neon_users_service.models import NeonUserConfig
+
 
 class AuthenticationRequest(BaseModel):
     username: str = "guest"
@@ -68,3 +70,19 @@ class RefreshRequest(BaseModel):
     access_token: str
     refresh_token: str
     client_id: str
+
+
+class RegistrationRequest(BaseModel):
+    username: str
+    password: str
+    user_config: NeonUserConfig = NeonUserConfig()
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "username": "guest",
+                "password": "password",
+                "user_config": NeonUserConfig().model_dump()
+            }, {"username": "guest",
+                "password": "password"}
+            ]}}

@@ -28,6 +28,7 @@ from fastapi import APIRouter, Request
 
 from neon_hana.app.dependencies import client_manager
 from neon_hana.schema.auth_requests import *
+from neon_users_service.models import User
 
 auth_route = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -43,3 +44,8 @@ async def check_login(auth_request: AuthenticationRequest,
 @auth_route.post("/refresh")
 async def check_refresh(request: RefreshRequest) -> AuthenticationResponse:
     return client_manager.check_refresh_request(**dict(request))
+
+
+@auth_route.post("/register")
+async def register_user(request: RegistrationRequest) -> User:
+    return client_manager.check_registration_request(**dict(request))

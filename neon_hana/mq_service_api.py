@@ -79,26 +79,30 @@ class MQServiceManager:
         raise APIError(status_code=code, detail=response['content'])
 
     @staticmethod
-    def _query_users_api(operation: str, username: Optional[str] = None,
+    def _query_users_api(operation: str, username: str,
                          password: Optional[str] = None,
-                         user: Optional[User] = None) -> (bool, Union[User, int, str]):
+                         access_token: Optional[str] = None,
+                         user: Optional[User] = None) -> (bool, int, Union[User, str]):
         """
         Query the users API and return a status code and either a valid User or
-        a string error message
+        a string error message. Authentication may use EITHER a password or
+        a token.
         @param operation: Operation to perform (create, read, update, delete)
         @param username: Optional username to include
         @param password: Optional password to include
+        @param access_token: Optional auth token to include
         @param user: Optional user object to include
-        @return: success bool, User object or string error message
+        @return: success bool, HTTP status code User object or string error message
         """
         response = send_mq_request("/neon_users",
                                    {"operation": operation,
                                     "username": username,
                                     "password": password,
-                                    "user": user},
+                                    "access_token": access_token,
+                                    "user": user.model_dump() if user else None},
                                    "neon_users_input")
         if response.get("success"):
-            return True, 200, response.get("user")
+            return True, 200, User(**response.get("user"))
         return False, response.get("code", 500), response.get("error", "")
 
     def get_session(self, node_data: NodeData) -> dict:
@@ -113,17 +117,21 @@ class MQServiceManager:
                                         "site_id": node_data.location.site_id})
         return self.sessions_by_id[session_id]
 
-    def get_user_profile(self, username: str, password: str) -> User:
+    def get_user_profile(self, username: str, password: Optional[str] = None,
+                         access_token: Optional[str] = None) -> User:
         """
-        Get a User object for a user. This requires that a valid password be
-        provided to prevent arbitrary users from reading private profile info.
+        Get a User object for a user. This requires that a valid password OR
+        access token be provided to prevent arbitrary users from reading
+        private profile info.
         @param username: Valid username to get a User object for
-        @param password: Valid password for the input username
+        @param password: Valid password to use for authentication
+        @param access_token: Valid access token to use for authentication
         @returns: User object from the Users service.
         """
         stat, code, err_or_user = self._query_users_api("read",
                                                         username=username,
-                                                        password=password)
+                                                        password=password,
+                                                        access_token=access_token)
         if not stat:
             raise HTTPException(status_code=code, detail=err_or_user)
         return err_or_user
@@ -134,7 +142,10 @@ class MQServiceManager:
         @param user: User object to add to the users service database
         @returns: User object added to the database
         """
-        stat, code, err_or_user = self._query_users_api("create", user=user)
+        stat, code, err_or_user = self._query_users_api("create",
+                                                        username=user.username,
+                                                        password=user.password_hash,
+                                                        user=user)
         if not stat:
             raise HTTPException(status_code=code, detail=err_or_user)
         return err_or_user
@@ -145,7 +156,10 @@ class MQServiceManager:
         @param user: Updated user object to write
         @returns: User as read from the database
         """
-        stat, code, err_or_user = self._query_users_api("update", user=user)
+        stat, code, err_or_user = self._query_users_api("update",
+                                                        username=user.username,
+                                                        password=user.password_hash,
+                                                        user=user)
         if not stat:
             raise HTTPException(status_code=code, detail=err_or_user)
         return err_or_user
