@@ -24,32 +24,26 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import FastAPI
+from pydantic import BaseModel
 
-from neon_hana.app.dependencies import client_manager, jwt_bearer, mq_connector
-from neon_hana.app.routers.api_proxy import proxy_route
-from neon_hana.app.routers.assist import assist_route
-from neon_hana.app.routers.llm import llm_route
-from neon_hana.app.routers.mq_backend import mq_route
-from neon_hana.app.routers.auth import auth_route
-from neon_hana.app.routers.user import user_route
-from neon_hana.app.routers.util import util_route
-from neon_hana.app.routers.node_server import node_route
-from neon_hana.version import __version__
+from neon_users_service.models import User
 
 
-def create_app(config: dict):
-    title = config.get('fastapi_title') or "HANA: HTTP API for Neon Applications"
-    summary = config.get('fastapi_summary') or ""
-    version = __version__
-    app = FastAPI(title=title, summary=summary, version=version)
-    app.include_router(auth_route)
-    app.include_router(assist_route)
-    app.include_router(proxy_route)
-    app.include_router(mq_route)
-    app.include_router(llm_route)
-    app.include_router(util_route)
-    app.include_router(node_route)
-    app.include_router(user_route)
+class GetUserRequest(BaseModel):
+    username: str = "guest"
 
-    return app
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "username": "guest"
+            }]}}
+
+
+class UpdateUserRequest(BaseModel):
+    user: User
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "user": User(username="guest").model_dump()
+            }]}}

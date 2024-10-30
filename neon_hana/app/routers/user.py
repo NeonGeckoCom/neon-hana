@@ -24,32 +24,22 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends
+from neon_hana.app.dependencies import jwt_bearer, mq_connector
+from neon_hana.schema.user_requests import GetUserRequest, UpdateUserRequest
+from neon_users_service.models import User
 
-from neon_hana.app.dependencies import client_manager, jwt_bearer, mq_connector
-from neon_hana.app.routers.api_proxy import proxy_route
-from neon_hana.app.routers.assist import assist_route
-from neon_hana.app.routers.llm import llm_route
-from neon_hana.app.routers.mq_backend import mq_route
-from neon_hana.app.routers.auth import auth_route
-from neon_hana.app.routers.user import user_route
-from neon_hana.app.routers.util import util_route
-from neon_hana.app.routers.node_server import node_route
-from neon_hana.version import __version__
+user_route = APIRouter(tags=["user"], dependencies=[Depends(jwt_bearer)])
 
 
-def create_app(config: dict):
-    title = config.get('fastapi_title') or "HANA: HTTP API for Neon Applications"
-    summary = config.get('fastapi_summary') or ""
-    version = __version__
-    app = FastAPI(title=title, summary=summary, version=version)
-    app.include_router(auth_route)
-    app.include_router(assist_route)
-    app.include_router(proxy_route)
-    app.include_router(mq_route)
-    app.include_router(llm_route)
-    app.include_router(util_route)
-    app.include_router(node_route)
-    app.include_router(user_route)
+@user_route.post("/get")
+async def get_user(request: GetUserRequest,
+                   token: str = Depends(jwt_bearer)) -> User:
+    return mq_connector.get_user_profile(access_token=token, **dict(request))
 
-    return app
+
+@user_route.post("/update")
+async def update_user(request: UpdateUserRequest,
+                      token: str = Depends(jwt_bearer)) -> User:
+    return mq_connector.handle_update_user_request(access_token=token,
+                                                   **dict(request))

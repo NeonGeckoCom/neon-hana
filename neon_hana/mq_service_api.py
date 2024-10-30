@@ -164,6 +164,21 @@ class MQServiceManager:
             raise HTTPException(status_code=code, detail=err_or_user)
         return err_or_user
 
+    def handle_update_user_request(self, user: User, access_token: str):
+        """
+        Handle a request to update a user. This accepts an `auth_token` to
+        account for requests to change the password or registered tokens.
+        @param user: Updated User object to write to the database
+        @param access_token: JWT auth token submitted with the request
+        """
+        stat, code, err_or_user = self._query_users_api("update",
+                                                        username=user.username,
+                                                        access_token=access_token,
+                                                        user=user)
+        if not stat:
+            raise HTTPException(status_code=code, detail=err_or_user)
+        return err_or_user
+
     def query_api_proxy(self, service_name: str, query_params: dict,
                         timeout: int = 10):
         query_params['service'] = service_name
