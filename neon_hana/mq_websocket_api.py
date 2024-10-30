@@ -33,7 +33,7 @@ from fastapi import WebSocket
 from neon_iris.client import NeonAIClient
 from ovos_bus_client.message import Message
 from threading import RLock
-from ovos_utils import LOG
+from ovos_utils.log import LOG
 
 
 class ClientNotKnown(RuntimeError):

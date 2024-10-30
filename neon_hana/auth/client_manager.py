@@ -37,10 +37,12 @@ from token_throttler import TokenThrottler, TokenBucket
 from token_throttler.storage import RuntimeStorage
 
 from neon_hana.auth.permissions import ClientPermissions
+from neon_hana.mq_service_api import MQServiceManager
+from neon_users_service.models import User, AccessRoles, TokenConfig
 
 
 class ClientManager:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, mq_connector: MQServiceManager):
         self.rate_limiter = TokenThrottler(cost=1, storage=RuntimeStorage())
 
         self.authorized_clients: Dict[str, dict] = dict()
@@ -58,8 +60,9 @@ class ClientManager:
         self._jwt_algo = "HS256"
         self._connected_streams = 0
         self._stream_check_lock = Lock()
+        self._mq_connector = mq_connector
 
-    def _create_tokens(self, encode_data: dict) -> dict:
+    def _create_tokens(self, encode_data: dict) -> TokenConfig:
         # Permissions were not included in old tokens, allow refreshing with
         # default permissions
         encode_data.setdefault("permissions", ClientPermissions().as_dict())
@@ -69,13 +72,14 @@ class ClientManager:
         encode_data['expire'] = time() + self._refresh_token_lifetime
         encode_data['access_token'] = token
         refresh = jwt.encode(encode_data, self._refresh_secret, self._jwt_algo)
-        # TODO: Store refresh token on server to allow invalidating clients
-        return {"username": encode_data['username'],
-                "client_id": encode_data['client_id'],
-                "permissions": encode_data['permissions'],
-                "access_token": token,
-                "refresh_token": refresh,
-                "expiration": token_expiration}
+        return TokenConfig(**{"username": encode_data['username'],
+                              "client_id": encode_data['client_id'],
+                              "permissions": encode_data['permissions'],
+                              "access_token": token,
+                              "refresh_token": refresh,
+                              "expiration": token_expiration,
+                              "token_name": encode_data['name'],
+                              "refresh_expiration": encode_data['expire']})
 
     def get_permissions(self, client_id: str) -> ClientPermissions:
         """
@@ -114,6 +118,7 @@ class ClientManager:
 
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None,
+                           token_name: Optional[str] = None,
                            origin_ip: str = "127.0.0.1") -> dict:
         """
         Authenticate and Authorize a new client connection with the specified
@@ -121,6 +126,7 @@ class ClientManager:
         @param client_id: Client ID of the connection to auth
         @param username: Supplied username to authenticate
         @param password: Supplied password to authenticate
+        @param token_name: Token name to add to user database
         @param origin_ip: Origin IP address of request
         @return: response tokens, permissions, and other metadata
         """
@@ -142,23 +148,40 @@ class ClientManager:
                                 detail=f"Too many auth requests from: "
                                        f"{origin_ip}. Wait {wait_time}s.")
 
-        node_access = False
-        if username != "guest":
-            # TODO: Validate password here
-            pass
-        if all((self._node_username, username == self._node_username,
-                password == self._node_password)):
-            node_access = True
-        permissions = ClientPermissions(node=node_access)
-        expiration = time() + self._access_token_lifetime
+        # TODO: disable "guest" access?
+        if username == "guest":
+            user = User(username=username, password=password)
+        elif all((self._node_username, username == self._node_username,
+                  password == self._node_password)):
+            user = User(username=username, password=password)
+            user.permissions.node = AccessRoles.USER
+        else:
+            user = self._mq_connector.get_user_profile(username, password)
+            username = user.username
+            password = user.password_hash
+
+        # Boolean permissions allow access for any role, including `NODE`.
+        # Specific endpoints may enforce more granular controls/limits based on
+        # specific user.permissions values.
+        permissions = ClientPermissions(
+            node=user.permissions.node != AccessRoles.NONE,
+            assist=user.permissions.core != AccessRoles.NONE,
+            backend=user.permissions.diana != AccessRoles.NONE)
+        create_time = time()
+        expiration = create_time + self._access_token_lifetime
         encode_data = {"client_id": client_id,
+                       "sub": username,  # Added for Klat token compat.
+                       "name": token_name,
                        "username": username,
                        "password": password,
                        "permissions": permissions.as_dict(),
-                       "expire": expiration}
+                       "create": create_time,
+                       "expire": expiration,
+                       "last_refresh_timestamp": create_time}
         auth = self._create_tokens(encode_data)
-        self.authorized_clients[client_id] = auth
-        return auth
+        self._add_token_to_userdb(user, auth)
+        self.authorized_clients[client_id] = auth.model_dump()
+        return auth.model_dump()
 
     def check_refresh_request(self, access_token: str, refresh_token: str,
                               client_id: str):
@@ -185,9 +208,22 @@ class ClientManager:
                                 detail="Access token does not match client_id")
         encode_data = {k: token_data[k] for k in
                        ("client_id", "username", "password")}
-        encode_data["expire"] = time() + self._access_token_lifetime
+        refresh_time = time()
+        encode_data['last_refresh_timestamp'] = refresh_time
+        encode_data["expire"] = refresh_time + self._access_token_lifetime
         new_auth = self._create_tokens(encode_data)
-        return new_auth
+        user = self._mq_connector.get_user_profile(username=token_data['username'],
+                                                   password=token_data['password'])
+        self._add_token_to_userdb(user, new_auth)
+        return new_auth.model_dump()
+
+    def _add_token_to_userdb(self, user: User, token_data: TokenConfig):
+        # Enforce unique `creation_timestamp` values to avoid duplicate entries
+        for idx, token in enumerate(user.tokens):
+            if token.creation_timestamp == token_data.creation_timestamp:
+                user.tokens.remove(token)
+        user.tokens.append(token_data)
+        self._mq_connector.update_user(user)
 
     def get_client_id(self, token: str) -> str:
         """

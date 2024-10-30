@@ -31,5 +31,5 @@ from neon_hana.auth.client_manager import ClientManager, UserTokenAuth
 
 config = Configuration().get("hana") or dict()
 mq_connector = MQServiceManager(config)
-client_manager = ClientManager(config)
+client_manager = ClientManager(config, mq_connector)
 jwt_bearer = UserTokenAuth(client_manager)

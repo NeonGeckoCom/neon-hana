@@ -27,13 +27,14 @@
 import json
 
 from time import time
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from uuid import uuid4
 from fastapi import HTTPException
 
 from neon_hana.schema.node_model import NodeData
 from neon_hana.schema.user_profile import UserProfile
 from neon_mq_connector.utils.client_utils import send_mq_request
+from neon_users_service.models import User
 
 
 class APIError(HTTPException):
@@ -77,6 +78,29 @@ class MQServiceManager:
         code = response['status_code'] if response['status_code'] > 200 else 500
         raise APIError(status_code=code, detail=response['content'])
 
+    @staticmethod
+    def _query_users_api(operation: str, username: Optional[str] = None,
+                         password: Optional[str] = None,
+                         user: Optional[User] = None) -> (bool, Union[User, int, str]):
+        """
+        Query the users API and return a status code and either a valid User or
+        a string error message
+        @param operation: Operation to perform (create, read, update, delete)
+        @param username: Optional username to include
+        @param password: Optional password to include
+        @param user: Optional user object to include
+        @return: success bool, User object or string error message
+        """
+        response = send_mq_request("/neon_users",
+                                   {"operation": operation,
+                                    "username": username,
+                                    "password": password,
+                                    "user": user},
+                                   "neon_users_input")
+        if response.get("success"):
+            return True, 200, response.get("user")
+        return False, response.get("code", 500), response.get("error", "")
+
     def get_session(self, node_data: NodeData) -> dict:
         """
         Get a serialized Session object for the specified Node.
@@ -88,6 +112,43 @@ class MQServiceManager:
                                        {"session_id": session_id,
                                         "site_id": node_data.location.site_id})
         return self.sessions_by_id[session_id]
+
+    def get_user_profile(self, username: str, password: str) -> User:
+        """
+        Get a User object for a user. This requires that a valid password be
+        provided to prevent arbitrary users from reading private profile info.
+        @param username: Valid username to get a User object for
+        @param password: Valid password for the input username
+        @returns: User object from the Users service.
+        """
+        stat, code, err_or_user = self._query_users_api("read",
+                                                        username=username,
+                                                        password=password)
+        if not stat:
+            raise HTTPException(status_code=code, detail=err_or_user)
+        return err_or_user
+
+    def create_user(self, user: User) -> User:
+        """
+        Create a new user.
+        @param user: User object to add to the users service database
+        @returns: User object added to the database
+        """
+        stat, code, err_or_user = self._query_users_api("create", user=user)
+        if not stat:
+            raise HTTPException(status_code=code, detail=err_or_user)
+        return err_or_user
+
+    def update_user(self, user: User) -> User:
+        """
+        Update an existing user in the database.
+        @param user: Updated user object to write
+        @returns: User as read from the database
+        """
+        stat, code, err_or_user = self._query_users_api("update", user=user)
+        if not stat:
+            raise HTTPException(status_code=code, detail=err_or_user)
+        return err_or_user
 
     def query_api_proxy(self, service_name: str, query_params: dict,
                         timeout: int = 10):

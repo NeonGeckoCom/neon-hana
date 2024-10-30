@@ -24,6 +24,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
@@ -33,13 +34,15 @@ from pydantic import BaseModel, Field
 class AuthenticationRequest(BaseModel):
     username: str = "guest"
     password: Optional[str] = None
+    token_name: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     client_id: str = Field(default_factory=lambda: str(uuid4()))
 
     model_config = {
         "json_schema_extra": {
             "examples": [{
                 "username": "guest",
-                "password": "password"
+                "password": "password",
+                "token_name": "My Client"
             }]}}
 
 
