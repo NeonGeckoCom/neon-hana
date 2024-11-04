@@ -38,7 +38,9 @@ from token_throttler.storage import RuntimeStorage
 
 from neon_hana.auth.permissions import ClientPermissions
 from neon_hana.mq_service_api import MQServiceManager
-from neon_users_service.models import User, AccessRoles, TokenConfig, NeonUserConfig, PermissionsConfig
+from neon_data_models.models.user import (User, TokenConfig, NeonUserConfig,
+                                          PermissionsConfig)
+from neon_data_models.enum import AccessRoles
 
 _DEFAULT_USER_PERMISSIONS = PermissionsConfig(klat=AccessRoles.USER,
                                               core=AccessRoles.USER,

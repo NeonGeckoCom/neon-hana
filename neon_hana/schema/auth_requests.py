@@ -30,7 +30,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from neon_users_service.models import NeonUserConfig
+from neon_data_models.models.user import NeonUserConfig
 
 
 class AuthenticationRequest(BaseModel):

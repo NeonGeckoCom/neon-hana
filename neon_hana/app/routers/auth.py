@@ -28,7 +28,7 @@ from fastapi import APIRouter, Request
 
 from neon_hana.app.dependencies import client_manager
 from neon_hana.schema.auth_requests import *
-from neon_users_service.models import User
+from neon_data_models.models.user import User
 
 auth_route = APIRouter(prefix="/auth", tags=["authentication"])
 
