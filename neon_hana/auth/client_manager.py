@@ -51,7 +51,8 @@ _DEFAULT_USER_PERMISSIONS = PermissionsConfig(klat=AccessRoles.USER,
 
 
 class ClientManager:
-    def __init__(self, config: dict, mq_connector: MQServiceManager):
+    def __init__(self, config: dict,
+                 mq_connector: Optional[MQServiceManager] = None):
         self.rate_limiter = TokenThrottler(cost=1, storage=RuntimeStorage())
 
         self.authorized_clients: Dict[str, dict] = dict()
@@ -135,7 +136,11 @@ class ClientManager:
         """
         new_user = User(username=username, password_hash=password,
                         neon=user_config, permissions=_DEFAULT_USER_PERMISSIONS)
-        return self._mq_connector.create_user(new_user)
+        if self._mq_connector:
+            return self._mq_connector.create_user(new_user)
+        else:
+            print("No User Database connected. Return valid registration.")
+            return new_user
 
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None,
@@ -169,12 +174,11 @@ class ClientManager:
                                 detail=f"Too many auth requests from: "
                                        f"{origin_ip}. Wait {wait_time}s.")
 
-        # TODO: disable "guest" access?
-        if username == "guest":
-            user = User(username=username, password=password)
+        if self._mq_connector is None:
+            user = User(username=username, password_hash=password)
         elif all((self._node_username, username == self._node_username,
                   password == self._node_password)):
-            user = User(username=username, password=password)
+            user = User(username=username, password_hash=password)
             user.permissions.node = AccessRoles.USER
         else:
             user = self._mq_connector.get_user_profile(username, password)
@@ -228,20 +232,26 @@ class ClientManager:
         encode_data = {k: token_data[k] for k in
                        ("client_id", "username", "password")}
 
-        user = self._mq_connector.get_user_profile(username=token_data['username'],
-                                                   access_token=refresh_token)
-        if not user.password_hash:
-            # This should not be possible, but don't let an error in the
-            # users service allow for injecting a new valid token to the db
-            raise HTTPException(status_code=500, detail="Error Fetching User")
-        refresh_time = round(time())
-        encode_data['last_refresh_timestamp'] = refresh_time
-        encode_data["expire"] = refresh_time + self._access_token_lifetime
-        new_auth = self._create_tokens(encode_data)
-        self._add_token_to_userdb(user, new_auth)
+        if self._mq_connector:
+            user = self._mq_connector.get_user_profile(username=token_data['username'],
+                                                       access_token=refresh_token)
+            if not user.password_hash:
+                # This should not be possible, but don't let an error in the
+                # users service allow for injecting a new valid token to the db
+                raise HTTPException(status_code=500, detail="Error Fetching User")
+            refresh_time = round(time())
+            encode_data['last_refresh_timestamp'] = refresh_time
+            encode_data["expire"] = refresh_time + self._access_token_lifetime
+            new_auth = self._create_tokens(encode_data)
+            self._add_token_to_userdb(user, new_auth)
+        else:
+            new_auth = self._create_tokens(encode_data)
         return new_auth.model_dump()
 
     def _add_token_to_userdb(self, user: User, token_data: TokenConfig):
+        if self._mq_connector is None:
+            print("No MQ Connection to a user database")
+            return
         # Enforce unique `creation_timestamp` values to avoid duplicate entries
         for idx, token in enumerate(user.tokens):
             if token.creation_timestamp == token_data.creation_timestamp:
