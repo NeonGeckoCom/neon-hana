@@ -23,35 +23,5 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-from uuid import uuid4
 
-from pydantic import BaseModel, Field
-from typing import Optional, Dict
-
-
-class NodeSoftware(BaseModel):
-    operating_system: str = ""
-    os_version: str = ""
-    neon_packages: Optional[Dict[str, str]] = None
-
-
-class NodeNetworking(BaseModel):
-    local_ip: str = "127.0.0.1"
-    public_ip: str = ""
-    mac_address: str = ""
-
-
-class NodeLocation(BaseModel):
-    lat: Optional[float] = None
-    lon: Optional[float] = None
-    site_id: Optional[str] = None
-
-
-class NodeData(BaseModel):
-    device_id: str = Field(default_factory=lambda: str(uuid4()))
-    device_name: str = ""
-    device_description: str = ""
-    platform: str = ""
-    networking: NodeNetworking = NodeNetworking()
-    software: NodeSoftware = NodeSoftware()
-    location: NodeLocation = NodeLocation()
+from neon_data_models.models.client.node import *
