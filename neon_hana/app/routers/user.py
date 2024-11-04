@@ -27,7 +27,7 @@
 from fastapi import APIRouter, Depends
 from neon_hana.app.dependencies import jwt_bearer, mq_connector
 from neon_hana.schema.user_requests import GetUserRequest, UpdateUserRequest
-from neon_users_service.models import User
+from neon_data_models.models.user import User
 
 user_route = APIRouter(tags=["user"], dependencies=[Depends(jwt_bearer)])
 
