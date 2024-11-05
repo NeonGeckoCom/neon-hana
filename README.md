@@ -25,12 +25,10 @@ hana:
   jwt_issuer: neon.ai  # Used in the `iss` field of generated JWT tokens.
   fastapi_title: "My HANA API Host"
   fastapi_summary: "Personal HTTP API to access my DIANA backend."
-  disable_auth: True
+  disable_auth: True  # If true, no authentication will be attempted; all connections will be allowed
   stt_max_length_encoded: 500000  # Arbitrary limit that is larger than any expected voice command
   tts_max_words: 128  # Arbitrary limit that is longer than any default LLM token limit
   enable_email: True  # Disabled by default; anyone with access to the API will be able to send emails from the configured address
-  node_username: node_user  # Username to authenticate Node API access; leave empty to disable Node API access
-  node_password: node_password  # Password associated with node_username
   max_streaming_clients: -1  # Maximum audio streaming clients allowed (including 0). Default unset value allows infinite clients
 ```
 It is recommended to generate unique values for configured tokens, these are 32

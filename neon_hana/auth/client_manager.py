@@ -70,13 +70,13 @@ class ClientManager:
         self._rpm = config.get("requests_per_minute", 60)
         self._auth_rpm = config.get("auth_requests_per_minute", 6)
         self._disable_auth = config.get("disable_auth")
-        self._node_username = config.get("node_username")
-        self._node_password = config.get("node_password")
         self._max_streaming_clients = config.get("max_streaming_clients")
         self._jwt_algo = "HS256"
         self._connected_streams = 0
         self._stream_check_lock = Lock()
-        self._mq_connector = mq_connector
+        # If authentication is explicitly disabled, don't try to query the
+        # users service
+        self._mq_connector = None if self._disable_auth else mq_connector
 
     @property
     def authorized_clients(self) -> Dict[str, AuthenticationResponse]:
@@ -205,11 +205,15 @@ class ClientManager:
                                        f"{origin_ip}. Wait {wait_time}s.")
 
         if self._mq_connector is None:
-            user = User(username=username, password_hash=password)
-        elif all((self._node_username, username == self._node_username,
-                  password == self._node_password)):
-            user = User(username=username, password_hash=password)
-            user.permissions.node = AccessRoles.USER
+            # Auth is disabled; every auth request gets a successful response
+            user = User(username=username, password_hash=password,
+                        permissions=_DEFAULT_USER_PERMISSIONS)
+        # elif all((self._node_username, username == self._node_username,
+        #           password == self._node_password)):
+        #     # User matches configured node username/password
+        #     user = User(username=username, password_hash=password,
+        #                 permissions=_DEFAULT_USER_PERMISSIONS)
+        #     user.permissions.node = AccessRoles.USER
         else:
             user = self._mq_connector.get_user_profile(username, password)
 
