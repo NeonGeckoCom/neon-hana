@@ -183,9 +183,12 @@ class ClientManager:
         @param origin_ip: Origin IP address of request
         @return: response tokens, permissions, and other metadata
         """
-        if client_id in self.authorized_clients:
-            print(f"Using cached client: {self.authorized_clients[client_id]}")
-            return self.authorized_clients[client_id]
+        # Caching does not work here because there is no guarantee that this
+        # instance knows the client's refresh token. One client may also want
+        # to generate multiple tokens.
+        # if client_id in self.authorized_clients:
+        #     print(f"Using cached client: {self.authorized_clients[client_id]}")
+        #     return self.authorized_clients[client_id]
 
         ratelimit_id = f"auth{origin_ip}"
         if not self.rate_limiter.get_all_buckets(ratelimit_id):

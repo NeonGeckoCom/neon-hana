@@ -65,6 +65,10 @@ class AuthenticationResponse(BaseModel):
                 "expiration": 1706045776.4168212
             }]}}
 
+    def __getitem__(self, item):
+        if hasattr(self, item):
+            return getattr(self, item)
+        raise KeyError(item)
 
 class RefreshRequest(BaseModel):
     access_token: str
