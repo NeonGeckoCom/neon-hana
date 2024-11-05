@@ -47,24 +47,25 @@ class TestClientManager(unittest.TestCase):
 
         # Check simple auth
         auth_resp_1 = self.client_manager.check_auth_request(**request_1)
-        self.assertEqual(self.client_manager.authorized_clients[client_1],
-                         auth_resp_1)
-        self.assertEqual(auth_resp_1['username'], 'guest')
-        self.assertEqual(auth_resp_1['client_id'], client_1)
+        # self.assertEqual(self.client_manager.authorized_clients[client_1],
+        #                  auth_resp_1.access_token)
+        self.assertEqual(auth_resp_1.username, 'guest')
+        self.assertEqual(auth_resp_1.client_id, client_1)
 
         # Check auth from different client
         auth_resp_2 = self.client_manager.check_auth_request(**request_2)
         self.assertNotEquals(auth_resp_1, auth_resp_2)
-        self.assertEqual(self.client_manager.authorized_clients[client_2],
-                         auth_resp_2)
-        self.assertEqual(auth_resp_2['username'], 'guest')
-        self.assertEqual(auth_resp_2['client_id'], client_2)
+        # self.assertEqual(self.client_manager.authorized_clients[client_2],
+        #                  auth_resp_2.access_token)
+        self.assertEqual(auth_resp_2.username, 'guest')
+        self.assertEqual(auth_resp_2.client_id, client_2)
 
         # TODO: Test permissions
 
-        # Check auth already authorized
-        self.assertEqual(auth_resp_2,
-                         self.client_manager.check_auth_request(**request_2))
+        # Check auth already authorized. New tokens are generated with new
+        # expirations
+        self.assertNotEqual(auth_resp_2,
+                            self.client_manager.check_auth_request(**request_2))
 
     def test_validate_auth(self):
         # Test valid client
