@@ -58,10 +58,9 @@ class ClientManager:
                  mq_connector: Optional[MQServiceManager] = None):
         self.rate_limiter = TokenThrottler(cost=1, storage=RuntimeStorage())
 
-        # TODO: Is `authorized_clients` useful to track?
         # Keep a dict of `client_id` to auth tokens that have authenticated to
         # this instance
-        self.authorized_clients: Dict[str, HanaToken] = dict()
+        self._authorized_clients: Dict[str, AuthenticationResponse] = dict()
         self._access_token_lifetime = config.get("access_token_ttl", 3600 * 24)
         self._refresh_token_lifetime = config.get("refresh_token_ttl",
                                                   3600 * 24 * 90)
@@ -79,6 +78,16 @@ class ClientManager:
         self._stream_check_lock = Lock()
         self._mq_connector = mq_connector
 
+    @property
+    def authorized_clients(self) -> Dict[str, AuthenticationResponse]:
+        """
+        Dict of `client_id` to `AuthenticationResponse` objects for clients
+        known by this instance. NOTE: Refresh tokens are not reliably stored
+        here and should never be retrievable after generation for security.
+        """
+        # TODO: Is `authorized_clients` useful to track?
+        return self._authorized_clients
+
     def _create_tokens(self,
                        user_id: str,
                        client_id: str,
@@ -92,9 +101,9 @@ class ClientManager:
         expiration_timestamp = creation_timestamp + self._access_token_lifetime
         refresh_expiration_timestamp = creation_timestamp + self._refresh_token_lifetime
         permissions = permissions or PermissionsConfig(core=AccessRoles.GUEST,
-                                                 diana=AccessRoles.GUEST,
-                                                 node=AccessRoles.GUEST,
-                                                 llm=AccessRoles.GUEST)
+                                                       diana=AccessRoles.GUEST,
+                                                       node=AccessRoles.GUEST,
+                                                       llm=AccessRoles.GUEST)
         token_name = token_name or kwargs.get("name") or \
                      datetime.fromtimestamp(creation_timestamp).isoformat()
         access_token_data = HanaToken(iss=self._jwt_issuer,
@@ -174,9 +183,9 @@ class ClientManager:
         @param origin_ip: Origin IP address of request
         @return: response tokens, permissions, and other metadata
         """
-        # if client_id in self.authorized_clients:
-        #     print(f"Using cached client: {self.authorized_clients[client_id]}")
-        #     return self.authorized_clients[client_id]
+        if client_id in self.authorized_clients:
+            print(f"Using cached client: {self.authorized_clients[client_id]}")
+            return self.authorized_clients[client_id]
 
         ratelimit_id = f"auth{origin_ip}"
         if not self.rate_limiter.get_all_buckets(ratelimit_id):
@@ -208,13 +217,15 @@ class ClientManager:
                        "token_name": token_name,
                        "last_refresh_timestamp": create_time}
         access, refresh, config = self._create_tokens(**encode_data)
-        self.authorized_clients[client_id] = config
+
+        auth_response = AuthenticationResponse(username=user.username,
+                                               client_id=client_id,
+                                               access_token=access,
+                                               refresh_token=refresh,
+                                               expiration=config.refresh_expiration_timestamp)
+        self.authorized_clients[client_id] = auth_response
         self._add_token_to_userdb(user, config)
-        return AuthenticationResponse(username=user.username,
-                                      client_id=client_id,
-                                      access_token=access,
-                                      refresh_token=refresh,
-                                      expiration=config.refresh_expiration_timestamp)
+        return auth_response
 
     def check_refresh_request(self, access_token: str, refresh_token: str,
                               client_id: str) -> AuthenticationResponse:
@@ -263,11 +274,14 @@ class ClientManager:
         else:
             username = token_data.sub
             access, refresh, config = self._create_tokens(**encode_data)
-        return AuthenticationResponse(username=username,
+
+        auth_response = AuthenticationResponse(username=username,
                                       client_id=client_id,
                                       access_token=access,
                                       refresh_token=refresh,
                                       expiration=config.refresh_expiration_timestamp)
+        self._authorized_clients[client_id] = auth_response
+        return auth_response
 
     def _add_token_to_userdb(self, user: User, new_token: TokenConfig):
         if self._mq_connector is None:
@@ -310,7 +324,9 @@ class ClientManager:
             if auth.exp < time():
                 self.authorized_clients.pop(auth.client_id, None)
                 return False
-            self.authorized_clients[auth.client_id] = auth
+            self.authorized_clients[auth.client_id] = AuthenticationResponse(
+                username=auth.sub, client_id=auth.client_id, access_token=token,
+                refresh_token="", expiration=auth.exp)
             return True
         except DecodeError:
             # Invalid token supplied

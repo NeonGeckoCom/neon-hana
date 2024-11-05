@@ -50,6 +50,7 @@ async def api_client_ip(request: Request) -> str:
         # Reported host is a hostname, not an IP address. Return a generic
         # loopback value
         ip_addr = "127.0.0.1"
+    # Validation will fail, but this increments the rate-limiting
     client_manager.validate_auth("", ip_addr)
     return ip_addr
 
@@ -57,5 +58,6 @@ async def api_client_ip(request: Request) -> str:
 @util_route.get("/headers")
 async def api_headers(request: Request):
     ip_addr = request.client.host if request.client else "127.0.0.1"
+    # Validation will fail, but this increments the rate-limiting
     client_manager.validate_auth("", ip_addr)
     return request.headers
