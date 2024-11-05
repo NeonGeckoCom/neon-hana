@@ -33,7 +33,7 @@ from time import time
 from typing import Dict, Optional
 from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jwt import DecodeError
+from jwt import DecodeError, ExpiredSignatureError
 from ovos_utils import LOG
 from token_throttler import TokenThrottler, TokenBucket
 from token_throttler.storage import RuntimeStorage
@@ -84,9 +84,11 @@ class ClientManager:
                        client_id: str,
                        token_name: Optional[str] = None,
                        permissions: Optional[PermissionsConfig] = None,
-                       **kwargs) -> (HanaToken, HanaToken, TokenConfig):
+                       **kwargs) -> (str, str, TokenConfig):
         token_id = str(uuid4())
-        creation_timestamp = round(time())
+        # Subtract a second from creation so the token may be used immediately
+        # upon return
+        creation_timestamp = round(time()) - 1
         expiration_timestamp = creation_timestamp + self._access_token_lifetime
         refresh_expiration_timestamp = creation_timestamp + self._refresh_token_lifetime
         permissions = permissions or PermissionsConfig(core=AccessRoles.GUEST,
@@ -111,7 +113,10 @@ class ClientManager:
                                        client_id=client_id,
                                        roles=permissions.to_roles(),
                                        purpose="refresh")
-
+        access_token = jwt.encode(access_token_data.model_dump(),
+                                  self._access_secret, self._jwt_algo)
+        refresh_token = jwt.encode(refresh_token_data.model_dump(),
+                                   self._refresh_secret, self._jwt_algo)
         token_config = TokenConfig(token_name=token_name,
                                    token_id=token_id,
                                    user_id=user_id,
@@ -120,7 +125,7 @@ class ClientManager:
                                    refresh_expiration_timestamp=refresh_expiration_timestamp,
                                    creation_timestamp=creation_timestamp,
                                    last_refresh_timestamp=creation_timestamp)
-        return access_token_data, refresh_token_data, token_config
+        return access_token, refresh_token, token_config
 
     def check_connect_stream(self) -> bool:
         """
@@ -220,10 +225,14 @@ class ClientManager:
                                                   self._jwt_algo))
             token_data = HanaToken(**jwt.decode(access_token,
                                                 self._access_secret,
-                                                self._jwt_algo))
+                                                self._jwt_algo,
+                                                leeway=self._refresh_token_lifetime))
         except DecodeError:
             raise HTTPException(status_code=400,
-                                detail="Invalid refresh token supplied")
+                                detail="Invalid token supplied")
+        except ExpiredSignatureError:
+            raise HTTPException(status_code=401,
+                                detail="Refresh token is expired")
         if refresh_data.jti != token_data.jti + ".refresh":
             raise HTTPException(status_code=403,
                                 detail="Refresh and access token mismatch")
@@ -305,6 +314,9 @@ class ClientManager:
             return True
         except DecodeError:
             # Invalid token supplied
+            pass
+        except ExpiredSignatureError:
+            # Expired token
             pass
         return False
 

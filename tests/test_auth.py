@@ -25,7 +25,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import unittest
-from time import time
+from time import time, sleep
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -34,7 +34,7 @@ from fastapi import HTTPException
 class TestClientManager(unittest.TestCase):
     from neon_hana.auth.client_manager import ClientManager
     client_manager = ClientManager({"access_token_secret": "a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b",
-                                    "refresh_token_secret": "a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b",
+                                    "refresh_token_secret": "a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391ba800",
                                     "disable_auth": False})
 
     def test_check_auth_request(self):
@@ -67,20 +67,24 @@ class TestClientManager(unittest.TestCase):
                          self.client_manager.check_auth_request(**request_2))
 
     def test_validate_auth(self):
+        # Test valid client
         valid_client = str(uuid4())
-        invalid_client = str(uuid4())
         auth_response = self.client_manager.check_auth_request(
-            username="valid", client_id=valid_client)['access_token']
-
+            username="valid", client_id=valid_client).access_token
         self.assertTrue(self.client_manager.validate_auth(auth_response,
                                                           "127.0.0.1"))
+
+        # Unauthenticated client fails
+        invalid_client = str(uuid4())
         self.assertFalse(self.client_manager.validate_auth(invalid_client,
                                                            "127.0.0.1"))
-        # TODO: Update token data
-        expired_token = self.client_manager._create_tokens(
-            {"client_id": invalid_client, "username": "test",
-             "password": "test", "expire": time(),
-             "permissions": {}})['access_token']
+        # Test expired token fails auth
+        self.client_manager._access_token_lifetime = 1
+        self.client_manager._refresh_token_lifetime = 1
+        expired_token, _, _ = self.client_manager._create_tokens(
+            user_id=str(uuid4()),
+            client_id=str(uuid4()))
+        sleep(1)
         self.assertFalse(self.client_manager.validate_auth(expired_token,
                                                            "127.0.0.1"))
 
@@ -93,117 +97,50 @@ class TestClientManager(unittest.TestCase):
 
     def test_check_refresh_request(self):
         valid_client = str(uuid4())
-        # TODO: Update token data
-        tokens = self.client_manager._create_tokens({"client_id": valid_client,
-                                                     "username": "test",
-                                                     "password": "test",
-                                                     "expire": time(),
-                                                     "permissions": {}})
-        self.assertEqual(tokens['client_id'], valid_client)
+        self.client_manager._access_token_lifetime = 60
+        self.client_manager._refresh_token_lifetime = 3600
+        access, refresh, config = self.client_manager._create_tokens(
+            user_id=str(uuid4()), client_id=valid_client)
+        access2, refresh2, config2 = self.client_manager._create_tokens(
+            user_id=str(uuid4()), client_id=str(uuid4()))
+        self.assertEqual(config.client_id, valid_client)
 
         # Test invalid refresh token
         with self.assertRaises(HTTPException) as e:
-            self.client_manager.check_refresh_request(tokens['access_token'],
-                                                      valid_client,
+            self.client_manager.check_refresh_request(access, access,
                                                       valid_client)
         self.assertEqual(e.exception.status_code, 400)
 
         # Test incorrect access token
         with self.assertRaises(HTTPException) as e:
-            self.client_manager.check_refresh_request(tokens['refresh_token'],
-                                                      tokens['refresh_token'],
+            self.client_manager.check_refresh_request(access2, refresh,
                                                       valid_client)
         self.assertEqual(e.exception.status_code, 403)
 
         # Test invalid client_id
         with self.assertRaises(HTTPException) as e:
-            self.client_manager.check_refresh_request(tokens['access_token'],
-                                                      tokens['refresh_token'],
+            self.client_manager.check_refresh_request(access, refresh,
                                                       str(uuid4()))
         self.assertEqual(e.exception.status_code, 403)
 
         # Test valid refresh
         valid_refresh = self.client_manager.check_refresh_request(
-            tokens['access_token'], tokens['refresh_token'],
-            tokens['client_id'])
-        self.assertEqual(valid_refresh['client_id'], tokens['client_id'])
-        self.assertNotEqual(valid_refresh['access_token'],
-                            tokens['access_token'])
-        self.assertNotEqual(valid_refresh['refresh_token'],
-                            tokens['refresh_token'])
+            access, refresh, config.client_id)
+        self.assertEqual(valid_refresh.client_id, config.client_id)
+        self.assertNotEqual(valid_refresh.access_token, access)
+        self.assertNotEqual(valid_refresh.refresh_token, refresh)
 
         # Test expired refresh token
         real_refresh = self.client_manager._refresh_token_lifetime
         self.client_manager._refresh_token_lifetime = 0
-        # TODO: Update token data
-        tokens = self.client_manager._create_tokens({"client_id": valid_client,
-                                                     "username": "test",
-                                                     "password": "test",
-                                                     "expire": time(),
-                                                    "permissions": {}})
+
+        access, refresh, config = self.client_manager._create_tokens(
+            user_id=str(uuid4()), client_id=valid_client)
         with self.assertRaises(HTTPException) as e:
-            self.client_manager.check_refresh_request(tokens['access_token'],
-                                                      tokens['refresh_token'],
-                                                      tokens['client_id'])
+            self.client_manager.check_refresh_request(access, refresh,
+                                                      config.client_id)
         self.assertEqual(e.exception.status_code, 401)
         self.client_manager._refresh_token_lifetime = real_refresh
-
-    def test_get_permissions(self):
-        from neon_hana.auth.permissions import ClientPermissions
-
-        node_user = "node_test"
-        rest_user = "rest_user"
-        self.client_manager._node_username = node_user
-        self.client_manager._node_password = node_user
-
-        rest_resp = self.client_manager.check_auth_request(rest_user, rest_user)
-        node_resp = self.client_manager.check_auth_request(node_user, node_user,
-                                                           node_user)
-        node_fail = self.client_manager.check_auth_request("node_fail",
-                                                           node_user, rest_user)
-
-        rest_cid = rest_resp['client_id']
-        node_cid = node_resp['client_id']
-        fail_cid = node_fail['client_id']
-
-        permissive = ClientPermissions(True, True, True)
-        no_node = ClientPermissions(True, True, False)
-        no_perms = ClientPermissions(False, False, False)
-
-        # Auth disabled, returns all True
-        self.client_manager._disable_auth = True
-        self.assertEqual(self.client_manager.get_permissions(rest_cid),
-                         permissive)
-        self.assertEqual(self.client_manager.get_permissions(node_cid),
-                         permissive)
-        self.assertEqual(self.client_manager.get_permissions(rest_cid),
-                         permissive)
-        self.assertEqual(self.client_manager.get_permissions(fail_cid),
-                         permissive)
-        self.assertEqual(self.client_manager.get_permissions("fake_user"),
-                         permissive)
-
-        # Auth enabled
-        self.client_manager._disable_auth = False
-        self.assertEqual(self.client_manager.get_permissions(rest_cid), no_node)
-        self.assertEqual(self.client_manager.get_permissions(node_cid),
-                         permissive)
-        self.assertEqual(self.client_manager.get_permissions(fail_cid), no_node)
-        self.assertEqual(self.client_manager.get_permissions("fake_user"),
-                         no_perms)
-
-    def test_client_permissions(self):
-        from neon_hana.auth.permissions import ClientPermissions
-        default_perms = ClientPermissions()
-        restricted_perms = ClientPermissions(False, False, False)
-        permissive_perms = ClientPermissions(True, True, True)
-        self.assertIsInstance(default_perms.as_dict(), dict)
-        for v in default_perms.as_dict().values():
-            self.assertIsInstance(v, bool)
-        self.assertIsInstance(restricted_perms.as_dict(), dict)
-        self.assertFalse(any([v for v in restricted_perms.as_dict().values()]))
-        self.assertIsInstance(permissive_perms.as_dict(), dict)
-        self.assertTrue(all([v for v in permissive_perms.as_dict().values()]))
 
     def test_stream_connections(self):
         # Test configured maximum
