@@ -22,6 +22,7 @@ hana:
   auth_requests_per_minute: 6  # This counts valid and invalid requests from an IP address
   access_token_secret: a800445648142061fc238d1f84e96200da87f4f9fa7835cac90db8b4391b117b
   refresh_token_secret: 833d369ac73d883123743a44b4a7fe21203cffc956f4c8fec712e71aafa8e1aa
+  jwt_issuer: neon.ai  # Used in the `iss` field of generated JWT tokens.
   fastapi_title: "My HANA API Host"
   fastapi_summary: "Personal HTTP API to access my DIANA backend."
   disable_auth: True

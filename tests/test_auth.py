@@ -76,7 +76,7 @@ class TestClientManager(unittest.TestCase):
                                                           "127.0.0.1"))
         self.assertFalse(self.client_manager.validate_auth(invalid_client,
                                                            "127.0.0.1"))
-
+        # TODO: Update token data
         expired_token = self.client_manager._create_tokens(
             {"client_id": invalid_client, "username": "test",
              "password": "test", "expire": time(),
@@ -93,6 +93,7 @@ class TestClientManager(unittest.TestCase):
 
     def test_check_refresh_request(self):
         valid_client = str(uuid4())
+        # TODO: Update token data
         tokens = self.client_manager._create_tokens({"client_id": valid_client,
                                                      "username": "test",
                                                      "password": "test",
@@ -134,6 +135,7 @@ class TestClientManager(unittest.TestCase):
         # Test expired refresh token
         real_refresh = self.client_manager._refresh_token_lifetime
         self.client_manager._refresh_token_lifetime = 0
+        # TODO: Update token data
         tokens = self.client_manager._create_tokens({"client_id": valid_client,
                                                      "username": "test",
                                                      "password": "test",
