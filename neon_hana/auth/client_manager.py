@@ -234,42 +234,48 @@ class ClientManager:
         self._add_token_to_userdb(user, config)
         return auth_response
 
-    def check_refresh_request(self, access_token: str, refresh_token: str,
+    def check_refresh_request(self, access_token: Optional[str],
+                              refresh_token: str,
                               client_id: str) -> AuthenticationResponse:
         # Read and validate refresh token
         try:
             refresh_data = HanaToken(**jwt.decode(refresh_token,
                                                   self._refresh_secret,
                                                   self._jwt_algo))
-            token_data = HanaToken(**jwt.decode(access_token,
-                                                self._access_secret,
-                                                self._jwt_algo,
-                                                leeway=self._refresh_token_lifetime))
+            # token_data = HanaToken(**jwt.decode(access_token,
+            #                                     self._access_secret,
+            #                                     self._jwt_algo))
+            if refresh_data.purpose != "refresh":
+                raise HTTPException(status_code=400,
+                                    detail="Supplied refresh token not valid")
+            # if token_data.purpose != "access":
+            #     raise HTTPException(status_code=400,
+            #                         detail="Supplied refresh token not valid")
         except DecodeError:
             raise HTTPException(status_code=400,
                                 detail="Invalid token supplied")
         except ExpiredSignatureError:
             raise HTTPException(status_code=401,
                                 detail="Refresh token is expired")
-        if refresh_data.jti != token_data.jti + ".refresh":
-            raise HTTPException(status_code=403,
-                                detail="Refresh and access token mismatch")
+        # if refresh_data.jti != token_data.jti + ".refresh":
+        #     raise HTTPException(status_code=403,
+        #                         detail="Refresh and access token mismatch")
         if time() > refresh_data.exp:
             raise HTTPException(status_code=401,
                                 detail="Refresh token is expired")
 
-        if token_data.client_id != client_id:
+        if refresh_data.client_id != client_id:
             raise HTTPException(status_code=403,
                                 detail="Access token does not match client_id")
 
         # `token_name` is not known here, but it will be read from the database
         # when the new token replaces the old one
-        encode_data = {"user_id": token_data.sub,
+        encode_data = {"user_id": refresh_data.sub,
                        "client_id": client_id,
-                       "permissions": PermissionsConfig.from_roles(token_data.roles)
+                       "permissions": PermissionsConfig.from_roles(refresh_data.roles)
                        }
         if self._mq_connector:
-            user = self._mq_connector.get_user_profile(username=token_data.sub,
+            user = self._mq_connector.get_user_profile(username=refresh_data.sub,
                                                        access_token=refresh_token)
             if not user.password_hash:
                 # This should not be possible, but don't let an error in the
@@ -279,14 +285,14 @@ class ClientManager:
             username = user.username
             self._add_token_to_userdb(user, config)
         else:
-            username = token_data.sub
+            username = refresh_data.sub
             access, refresh, config = self._create_tokens(**encode_data)
 
         auth_response = AuthenticationResponse(username=username,
-                                      client_id=client_id,
-                                      access_token=access,
-                                      refresh_token=refresh,
-                                      expiration=config.refresh_expiration_timestamp)
+                                               client_id=client_id,
+                                               access_token=access,
+                                               refresh_token=refresh,
+                                               expiration=config.refresh_expiration_timestamp)
         self._authorized_clients[client_id] = auth_response
         return auth_response
 

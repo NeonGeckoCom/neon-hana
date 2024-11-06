@@ -72,7 +72,7 @@ class AuthenticationResponse(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     refresh_token: str
     client_id: str
 
