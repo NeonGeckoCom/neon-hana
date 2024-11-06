@@ -295,10 +295,11 @@ class ClientManager:
             print("No MQ Connection to a user database")
             return
         for idx, token in enumerate(user.tokens):
+            # If the token is already defined, maintain the original
+            # token_id and creation timestamp
             if token.token_id == new_token.token_id:
-                # Tokens don't contain `token_name`, so use the same one as is
-                # being replaced
                 new_token.token_name = token.token_name
+                new_token.creation_timestamp = token.creation_timestamp
                 user.tokens.remove(token)
         user.tokens.append(new_token)
         self._mq_connector.update_user(user)

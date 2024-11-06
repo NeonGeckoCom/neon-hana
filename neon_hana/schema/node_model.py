@@ -25,4 +25,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from neon_data_models.models.client.node import NodeSoftware, NodeNetworking, NodeLocation, NodeData
-# TODO: Mark for deprecation
+from ovos_utils.log import log_deprecation
+
+log_deprecation('Imports moved to `neon_data_models.models.client.node`',
+                '1.0.0')

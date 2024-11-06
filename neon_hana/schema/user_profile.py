@@ -25,4 +25,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from neon_data_models.models.user.neon_profile import *
-# TODO: Mark for deprecation
+from ovos_utils.log import log_deprecation
+
+log_deprecation('Imports moved to `neon_data_models.models.user.neon_profile`',
+                '1.0.0')

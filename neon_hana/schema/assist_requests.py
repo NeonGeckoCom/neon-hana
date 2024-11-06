@@ -27,8 +27,8 @@
 from typing import List, Optional
 from pydantic import BaseModel
 
-from neon_hana.schema.node_model import NodeData
-from neon_hana.schema.user_profile import UserProfile
+from neon_data_models.models.client.node import NodeData
+from neon_data_models.models.user.neon_profile import UserProfile
 
 
 class STTRequest(BaseModel):

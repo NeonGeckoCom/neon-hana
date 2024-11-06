@@ -31,9 +31,9 @@ from typing import Optional, Dict, Any, List, Union
 from uuid import uuid4
 from fastapi import HTTPException
 
-from neon_hana.schema.node_model import NodeData
-from neon_hana.schema.user_profile import UserProfile
 from neon_mq_connector.utils.client_utils import send_mq_request
+from neon_data_models.models.client.node import NodeData
+from neon_data_models.models.user.neon_profile import UserProfile
 from neon_data_models.models.user import User
 
 

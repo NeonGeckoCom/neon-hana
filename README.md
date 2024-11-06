@@ -44,7 +44,27 @@ docker run -p 8080:8080 -v ~/.config/neon:/config/neon ghcr.io/neongeckocom/neon
   are using the default port 8080
 
 ## Usage
-Full API documentation is available at `/docs`. The `/auth/login` endpoint should
-be used to generate a `client_id`, `access_token`, and `refresh_token`. The
-`access_token` should be included in every request and upon expiration of the
-`access_token`, a new token can be obtained from the `auth/refresh` endpoint.
+Full API documentation is available at `/docs`.
+
+### Registration
+The `/auth/register` endpoint may be used to create a new user if auth is enabled.
+If auth is disabled, any login requests will return a successful response.
+
+### Token Generation
+The `/auth/login` endpoint should  be used to generate a `client_id`, 
+`access_token`, and `refresh_token`. The `access_token` should be included in 
+every request and upon expiration of the `access_token`, a new token can be 
+obtained from the `auth/refresh` endpoint. Tokens are client-specific and clients
+are expected to include the same `client_id` and valid tokens for that client
+with every request.
+
+### Token Management
+`access_token`s should not be saved to persistent storage; they are only valid
+for a short period of time and a new `access_token` should be generated for
+every new session.
+
+`refresh_token`s should be saved to persistent storage and used to generate a new
+`access_token` and `refresh_token` at the beginning of a session, or when the
+current `access_token` expires. A `refresh_token` may only be used once; a new
+`refresh_token` returned from the `/auth/refresh` endpoint will replace the one
+included in the request.
