@@ -70,6 +70,7 @@ class AuthenticationResponse(BaseModel):
             return getattr(self, item)
         raise KeyError(item)
 
+
 class RefreshRequest(BaseModel):
     access_token: str
     refresh_token: str

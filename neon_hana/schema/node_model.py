@@ -24,4 +24,5 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from neon_data_models.models.client.node import *
+from neon_data_models.models.client.node import NodeSoftware, NodeNetworking, NodeLocation, NodeData
+# TODO: Mark for deprecation

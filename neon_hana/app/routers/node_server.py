@@ -26,7 +26,6 @@
 
 from asyncio import Event
 from signal import signal, SIGINT
-from time import sleep
 from typing import Optional, Union
 
 from fastapi import APIRouter, WebSocket, HTTPException
@@ -36,13 +35,17 @@ from starlette.websockets import WebSocketDisconnect
 from neon_hana.app.dependencies import config, client_manager
 from neon_hana.mq_websocket_api import MQWebsocketAPI, ClientNotKnown
 
-from neon_hana.schema.node_v1 import (NodeAudioInput, NodeGetStt,
-                                      NodeGetTts, NodeKlatResponse,
-                                      NodeAudioInputResponse,
-                                      NodeGetSttResponse,
-                                      NodeGetTtsResponse, CoreWWDetected,
-                                      CoreIntentFailure, CoreErrorResponse,
-                                      CoreClearData, CoreAlertExpired)
+from neon_data_models.models.api.node_v1 import (NodeAudioInput, NodeGetStt,
+                                                 NodeGetTts, NodeKlatResponse,
+                                                 NodeAudioInputResponse,
+                                                 NodeGetSttResponse,
+                                                 NodeGetTtsResponse,
+                                                 CoreWWDetected,
+                                                 CoreIntentFailure,
+                                                 CoreErrorResponse,
+                                                 CoreClearData,
+                                                 CoreAlertExpired)
+
 node_route = APIRouter(prefix="/node", tags=["node"])
 
 socket_api = MQWebsocketAPI(config)

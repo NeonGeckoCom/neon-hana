@@ -25,3 +25,4 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from neon_data_models.models.user.neon_profile import *
+# TODO: Mark for deprecation
