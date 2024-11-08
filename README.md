@@ -18,8 +18,9 @@ hana:
   mq_default_timeout: 10
   access_token_ttl: 86400  # 1 day
   refresh_token_ttl: 604800  # 1 week
-  requests_per_minute: 60
+  requests_per_minute: 60  # All other requests (auth, registration, etc) also count towards this limit
   auth_requests_per_minute: 6  # This counts valid and invalid requests from an IP address
+  registration_requests_per_hour: 4  # This is low to prevent malicious user creation that will pollute the database
   access_token_secret: a800445648142061fc238d1f84e96200da87f4f9fa7835cac90db8b4391b117b
   refresh_token_secret: 833d369ac73d883123743a44b4a7fe21203cffc956f4c8fec712e71aafa8e1aa
   jwt_issuer: neon.ai  # Used in the `iss` field of generated JWT tokens.

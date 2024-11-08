@@ -69,6 +69,7 @@ class ClientManager:
         self._refresh_secret = config.get("refresh_token_secret")
         self._rpm = config.get("requests_per_minute", 60)
         self._auth_rpm = config.get("auth_requests_per_minute", 6)
+        self._register_rph = config.get("registration_requests_per_hour", 4)
         self._disable_auth = config.get("disable_auth")
         self._max_streaming_clients = config.get("max_streaming_clients")
         self._jwt_algo = "HS256"
@@ -156,11 +157,31 @@ class ClientManager:
         with self._stream_check_lock:
             self._connected_streams -= 1
 
+    def _consume_rate_limit_token(self, ratelimit_id: str):
+        if not self.rate_limiter.consume(ratelimit_id):
+            bucket = list(self.rate_limiter.get_all_buckets(ratelimit_id).
+                          values())[0]
+            replenish_time = bucket.last_replenished + bucket.replenish_time
+            wait_time = round(replenish_time - time())
+            ip_addr, request_cls = ratelimit_id.split('-', 1)
+            raise HTTPException(status_code=429,
+                                detail=f"Too many {request_cls} requests from: "
+                                       f"{ip_addr}. Wait {wait_time}s.")
+
     def check_registration_request(self, username: str, password: str,
-                                   user_config: NeonUserConfig) -> User:
+                                   user_config: NeonUserConfig,
+                                   origin_ip: str = "127.0.0.1") -> User:
         """
         Handle a request to register a new user.
         """
+
+        ratelimit_id = f"{origin_ip}-register"
+        if not self.rate_limiter.get_all_buckets(ratelimit_id):
+            self.rate_limiter.add_bucket(ratelimit_id,
+                                         TokenBucket(replenish_time=3600,
+                                                     max_tokens=self._register_rph))
+        self._consume_rate_limit_token(ratelimit_id)
+
         new_user = User(username=username, password_hash=password,
                         neon=user_config, permissions=_DEFAULT_USER_PERMISSIONS)
         if self._mq_connector:
@@ -190,19 +211,12 @@ class ClientManager:
         #     print(f"Using cached client: {self.authorized_clients[client_id]}")
         #     return self.authorized_clients[client_id]
 
-        ratelimit_id = f"auth{origin_ip}"
+        ratelimit_id = f"{origin_ip}-auth"
         if not self.rate_limiter.get_all_buckets(ratelimit_id):
             self.rate_limiter.add_bucket(ratelimit_id,
                                          TokenBucket(replenish_time=60,
                                                      max_tokens=self._auth_rpm))
-        if not self.rate_limiter.consume(ratelimit_id):
-            bucket = list(self.rate_limiter.get_all_buckets(ratelimit_id).
-                          values())[0]
-            replenish_time = bucket.last_replenished + bucket.replenish_time
-            wait_time = round(replenish_time - time())
-            raise HTTPException(status_code=429,
-                                detail=f"Too many auth requests from: "
-                                       f"{origin_ip}. Wait {wait_time}s.")
+        self._consume_rate_limit_token(ratelimit_id)
 
         if self._mq_connector is None:
             # Auth is disabled; every auth request gets a successful response
@@ -321,14 +335,13 @@ class ClientManager:
         return auth.client_id
 
     def validate_auth(self, token: str, origin_ip: str) -> bool:
-        if not self.rate_limiter.get_all_buckets(origin_ip):
-            self.rate_limiter.add_bucket(origin_ip,
+        ratelimit_id = f"{origin_ip}-total"
+        if not self.rate_limiter.get_all_buckets(ratelimit_id):
+            self.rate_limiter.add_bucket(ratelimit_id,
                                          TokenBucket(replenish_time=60,
                                                      max_tokens=self._rpm))
-        if not self.rate_limiter.consume(origin_ip) and self._rpm > 0:
-            raise HTTPException(status_code=429,
-                                detail=f"Requests limited to {self._rpm}/min "
-                                       f"per client connection")
+        if self._rpm > 0:
+            self._consume_rate_limit_token(ratelimit_id)
 
         if self._disable_auth:
             return True

@@ -47,5 +47,7 @@ async def check_refresh(request: RefreshRequest) -> AuthenticationResponse:
 
 
 @auth_route.post("/register")
-async def register_user(request: RegistrationRequest) -> User:
-    return client_manager.check_registration_request(**dict(request))
+async def register_user(register_request: RegistrationRequest,
+                        request: Request) -> User:
+    return client_manager.check_registration_request(**dict(register_request),
+                                                     origin_ip=request.client.host)
