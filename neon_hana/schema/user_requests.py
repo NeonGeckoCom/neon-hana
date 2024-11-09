@@ -25,6 +25,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from pydantic import BaseModel
+from typing import Optional
 
 from neon_data_models.models.user.database import User
 
@@ -41,9 +42,15 @@ class GetUserRequest(BaseModel):
 
 class UpdateUserRequest(BaseModel):
     user: User
+    auth_username: Optional[str] = None
+    auth_password: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {
             "examples": [{
                 "user": User(username="guest").model_dump()
-            }]}}
+            },
+                {"user": User(username="some_user").model_dump(),
+                 "auth_username": "admin_user",
+                 "auth_password": "admin_password"}
+            ]}}

@@ -229,7 +229,7 @@ class ClientManager:
         #                 permissions=_DEFAULT_USER_PERMISSIONS)
         #     user.permissions.node = AccessRoles.USER
         else:
-            user = self._mq_connector.get_user_profile(username, password)
+            user = self._mq_connector.read_user(username, password)
 
         create_time = round(time())
         encode_data = {"client_id": client_id,
@@ -289,8 +289,8 @@ class ClientManager:
                        "permissions": PermissionsConfig.from_roles(refresh_data.roles)
                        }
         if self._mq_connector:
-            user = self._mq_connector.get_user_profile(username=refresh_data.sub,
-                                                       access_token=refresh_token)
+            user = self._mq_connector.read_user(username=refresh_data.sub,
+                                                access_token=refresh_token)
             if not user.password_hash:
                 # This should not be possible, but don't let an error in the
                 # users service allow for injecting a new valid token to the db
@@ -333,6 +333,17 @@ class ClientManager:
         auth = HanaToken(**jwt.decode(token, self._access_secret,
                                       self._jwt_algo))
         return auth.client_id
+
+    def get_token_user_id(self, token: str) -> str:
+        """
+        Extract the user_id from a JWT string
+        @param token: JWT to parse
+        @retrun: user_id associated with token
+        """
+        auth = HanaToken(**jwt.decode(token, self._access_secret,
+                                      self._jwt_algo))
+        return auth.user_id
+
 
     def validate_auth(self, token: str, origin_ip: str) -> bool:
         ratelimit_id = f"{origin_ip}-total"

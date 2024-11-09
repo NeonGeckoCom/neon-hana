@@ -31,6 +31,8 @@ from typing import Optional, Dict, Any, List, Union
 from uuid import uuid4
 from fastapi import HTTPException
 
+from neon_data_models.models.api import CreateUserRequest, ReadUserRequest, \
+    UpdateUserRequest, DeleteUserRequest
 from neon_mq_connector.utils.client_utils import send_mq_request
 from neon_data_models.models.client.node import NodeData
 from neon_data_models.models.user.neon_profile import UserProfile
@@ -79,31 +81,26 @@ class MQServiceManager:
         raise APIError(status_code=code, detail=response['content'])
 
     @staticmethod
-    def _query_users_api(operation: str, username: str,
-                         password: Optional[str] = None,
-                         access_token: Optional[str] = None,
-                         user: Optional[User] = None) -> (bool, int, Union[User, str]):
+    def _query_users_api(user_db_request: Union[CreateUserRequest,
+                                                ReadUserRequest,
+                                                UpdateUserRequest,
+                                                DeleteUserRequest]) -> \
+            (int, Union[User, str]):
         """
         Query the users API and return a status code and either a valid User or
         a string error message. Authentication may use EITHER a password or
         a token.
-        @param operation: Operation to perform (create, read, update, delete)
-        @param username: Optional username to include
-        @param password: Optional password to include
-        @param access_token: Optional auth token to include
-        @param user: Optional user object to include
-        @return: success bool, HTTP status code User object or string error message
+        @param user_db_request: UserDbRequest object describing CRUD operation
+            to return
+        @return: success bool, HTTP status code, User object or string error
         """
         response = send_mq_request("/neon_users",
-                                   {"operation": operation,
-                                    "username": username,
-                                    "password": password,
-                                    "access_token": access_token,
-                                    "user": user.model_dump() if user else None},
-                                   "neon_users_input")
+                                   user_db_request.model_dump(exclude={
+                                       "message_id"}),
+                                   target_queue="neon_users_input")
         if response.get("success"):
-            return True, 200, User(**response.get("user"))
-        return False, response.get("code", 500), response.get("error", "")
+            return 200, User(**response.get("user"))
+        return response.get("code", 500), response.get("error", "")
 
     def get_session(self, node_data: NodeData) -> dict:
         """
@@ -117,8 +114,21 @@ class MQServiceManager:
                                         "site_id": node_data.location.site_id})
         return self.sessions_by_id[session_id]
 
-    def get_user_profile(self, username: str, password: Optional[str] = None,
-                         access_token: Optional[str] = None) -> User:
+    def create_user(self, user: User) -> User:
+        """
+        Create a new user.
+        @param user: User object to add to the users service database
+        @returns: User object added to the database
+        """
+        create_user_request = CreateUserRequest(user=user, message_id="")
+        code, err_or_user = self._query_users_api(create_user_request)
+        if code != 200:
+            raise HTTPException(status_code=code, detail=err_or_user)
+        return err_or_user
+
+    def read_user(self, username: str, password: Optional[str] = None,
+                  access_token: Optional[str] = None,
+                  auth_user: Optional[str] = None) -> User:
         """
         Get a User object for a user. This requires that a valid password OR
         access token be provided to prevent arbitrary users from reading
@@ -126,56 +136,34 @@ class MQServiceManager:
         @param username: Valid username to get a User object for
         @param password: Valid password to use for authentication
         @param access_token: Valid access token to use for authentication
+        @param auth_user: Optional username to use for authentication
         @returns: User object from the Users service.
         """
-        stat, code, err_or_user = self._query_users_api("read",
-                                                        username=username,
-                                                        password=password,
-                                                        access_token=access_token)
-        if not stat:
+        read_user_request = ReadUserRequest(user_spec=username,
+                                            auth_user_spec=auth_user,
+                                            access_token=access_token,
+                                            password=password, message_id="")
+        code, err_or_user = self._query_users_api(read_user_request)
+        if code != 200:
             raise HTTPException(status_code=code, detail=err_or_user)
         return err_or_user
 
-    def create_user(self, user: User) -> User:
-        """
-        Create a new user.
-        @param user: User object to add to the users service database
-        @returns: User object added to the database
-        """
-        stat, code, err_or_user = self._query_users_api("create",
-                                                        username=user.username,
-                                                        password=user.password_hash,
-                                                        user=user)
-        if not stat:
-            raise HTTPException(status_code=code, detail=err_or_user)
-        return err_or_user
-
-    def update_user(self, user: User) -> User:
+    def update_user(self, user: User,
+                    auth_user: Optional[str] = None,
+                    auth_password: Optional[str] = None) -> User:
         """
         Update an existing user in the database.
         @param user: Updated user object to write
+        @param auth_user: Username to use for authentication
+        @param auth_password: Password associated with `auth_user`
         @returns: User as read from the database
         """
-        stat, code, err_or_user = self._query_users_api("update",
-                                                        username=user.username,
-                                                        password=user.password_hash,
-                                                        user=user)
-        if not stat:
-            raise HTTPException(status_code=code, detail=err_or_user)
-        return err_or_user
-
-    def handle_update_user_request(self, user: User, access_token: str):
-        """
-        Handle a request to update a user. This accepts an `auth_token` to
-        account for requests to change the password or registered tokens.
-        @param user: Updated User object to write to the database
-        @param access_token: JWT auth token submitted with the request
-        """
-        stat, code, err_or_user = self._query_users_api("update",
-                                                        username=user.username,
-                                                        access_token=access_token,
-                                                        user=user)
-        if not stat:
+        update_user_request = UpdateUserRequest(user=user,
+                                                auth_username=auth_user,
+                                                auth_password=auth_password,
+                                                message_id="")
+        code, err_or_user = self._query_users_api(update_user_request)
+        if code != 200:
             raise HTTPException(status_code=code, detail=err_or_user)
         return err_or_user
 

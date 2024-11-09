@@ -35,11 +35,13 @@ user_route = APIRouter(tags=["user"], dependencies=[Depends(jwt_bearer)])
 @user_route.post("/get")
 async def get_user(request: GetUserRequest,
                    token: str = Depends(jwt_bearer)) -> User:
-    return mq_connector.get_user_profile(access_token=token, **dict(request))
+    user_id = jwt_bearer.client_manager.get_token_user_id(token)
+    return mq_connector.read_user(access_token=token, auth_user=user_id,
+                                  **dict(request))
 
 
 @user_route.post("/update")
 async def update_user(request: UpdateUserRequest,
                       token: str = Depends(jwt_bearer)) -> User:
-    return mq_connector.handle_update_user_request(access_token=token,
-                                                   **dict(request))
+    return mq_connector.update_user(access_token=token,
+                                    **dict(request))
