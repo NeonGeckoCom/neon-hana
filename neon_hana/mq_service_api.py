@@ -33,6 +33,7 @@ from fastapi import HTTPException
 
 from neon_data_models.models.api import CreateUserRequest, ReadUserRequest, \
     UpdateUserRequest, DeleteUserRequest
+from neon_data_models.models.api.jwt import HanaToken
 from neon_mq_connector.utils.client_utils import send_mq_request
 from neon_data_models.models.client.node import NodeData
 from neon_data_models.models.user.neon_profile import UserProfile
@@ -127,7 +128,7 @@ class MQServiceManager:
         return err_or_user
 
     def read_user(self, username: str, password: Optional[str] = None,
-                  access_token: Optional[str] = None,
+                  access_token: Optional[HanaToken] = None,
                   auth_user: Optional[str] = None) -> User:
         """
         Get a User object for a user. This requires that a valid password OR
@@ -136,9 +137,10 @@ class MQServiceManager:
         @param username: Valid username to get a User object for
         @param password: Valid password to use for authentication
         @param access_token: Valid access token to use for authentication
-        @param auth_user: Optional username to use for authentication
+        @param auth_user: Optional username or user ID to use for authentication
         @returns: User object from the Users service.
         """
+        auth_user = auth_user or username
         read_user_request = ReadUserRequest(user_spec=username,
                                             auth_user_spec=auth_user,
                                             access_token=access_token,
@@ -158,6 +160,8 @@ class MQServiceManager:
         @param auth_password: Password associated with `auth_user`
         @returns: User as read from the database
         """
+        auth_user = auth_user or user.username
+        auth_password = auth_password or user.password_hash
         update_user_request = UpdateUserRequest(user=user,
                                                 auth_username=auth_user,
                                                 auth_password=auth_password,

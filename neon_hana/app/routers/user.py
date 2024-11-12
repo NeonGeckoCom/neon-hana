@@ -35,8 +35,9 @@ user_route = APIRouter(tags=["user"], dependencies=[Depends(jwt_bearer)])
 @user_route.post("/get")
 async def get_user(request: GetUserRequest,
                    token: str = Depends(jwt_bearer)) -> User:
-    user_id = jwt_bearer.client_manager.get_token_user_id(token)
-    return mq_connector.read_user(access_token=token, auth_user=user_id,
+    hana_token = jwt_bearer.client_manager.get_token_data(token)
+    return mq_connector.read_user(access_token=hana_token,
+                                  auth_user=hana_token.sub,
                                   **dict(request))
 
 

@@ -104,7 +104,8 @@ class TestClientManager(unittest.TestCase):
             user_id=str(uuid4()), client_id=valid_client)
         access2, refresh2, config2 = self.client_manager._create_tokens(
             user_id=str(uuid4()), client_id=str(uuid4()))
-        self.assertEqual(config.client_id, valid_client)
+        self.assertEqual(config['access'].client_id, valid_client)
+        self.assertEqual(config['refresh'].client_id, valid_client)
 
         # Test invalid refresh token
         with self.assertRaises(HTTPException) as e:
@@ -139,7 +140,7 @@ class TestClientManager(unittest.TestCase):
             user_id=str(uuid4()), client_id=valid_client)
         with self.assertRaises(HTTPException) as e:
             self.client_manager.check_refresh_request(access, refresh,
-                                                      config.client_id)
+                                                      config['access'].client_id)
         self.assertEqual(e.exception.status_code, 401)
         self.client_manager._refresh_token_lifetime = real_refresh
 

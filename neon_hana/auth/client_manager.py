@@ -40,7 +40,7 @@ from token_throttler.storage import RuntimeStorage
 
 from neon_data_models.models.api.jwt import HanaToken
 from neon_hana.mq_service_api import MQServiceManager
-from neon_data_models.models.user import (User, TokenConfig, NeonUserConfig,
+from neon_data_models.models.user import (User, NeonUserConfig,
                                           PermissionsConfig)
 from neon_data_models.enum import AccessRoles
 from neon_hana.schema.auth_requests import AuthenticationResponse
@@ -94,7 +94,7 @@ class ClientManager:
                        client_id: str,
                        token_name: Optional[str] = None,
                        permissions: Optional[PermissionsConfig] = None,
-                       **kwargs) -> (str, str, TokenConfig):
+                       **kwargs) -> (str, str, Dict[str, HanaToken]):
         token_id = str(uuid4())
         # Subtract a second from creation so the token may be used immediately
         # upon return
@@ -106,7 +106,7 @@ class ClientManager:
                                                        node=AccessRoles.GUEST,
                                                        llm=AccessRoles.GUEST)
         token_name = token_name or kwargs.get("name") or \
-                     datetime.fromtimestamp(creation_timestamp).isoformat()
+            datetime.fromtimestamp(creation_timestamp).isoformat()
         access_token_data = HanaToken(iss=self._jwt_issuer,
                                       sub=user_id,
                                       exp=expiration_timestamp,
@@ -114,6 +114,9 @@ class ClientManager:
                                       jti=token_id,
                                       client_id=client_id,
                                       roles=permissions.to_roles(),
+                                      token_name=token_name,
+                                      creation_timestamp=creation_timestamp,
+                                      last_refresh_timestamp=creation_timestamp,
                                       purpose="access")
         refresh_token_data = HanaToken(iss=self._jwt_issuer,
                                        sub=user_id,
@@ -122,20 +125,17 @@ class ClientManager:
                                        jti=f"{token_id}.refresh",
                                        client_id=client_id,
                                        roles=permissions.to_roles(),
+                                       token_name=token_name,
+                                       creation_timestamp=creation_timestamp,
+                                       last_refresh_timestamp=creation_timestamp,
                                        purpose="refresh")
         access_token = jwt.encode(access_token_data.model_dump(),
                                   self._access_secret, self._jwt_algo)
         refresh_token = jwt.encode(refresh_token_data.model_dump(),
                                    self._refresh_secret, self._jwt_algo)
-        token_config = TokenConfig(token_name=token_name,
-                                   token_id=token_id,
-                                   user_id=user_id,
-                                   client_id=client_id,
-                                   permissions=permissions,
-                                   refresh_expiration_timestamp=refresh_expiration_timestamp,
-                                   creation_timestamp=creation_timestamp,
-                                   last_refresh_timestamp=creation_timestamp)
-        return access_token, refresh_token, token_config
+
+        return access_token, refresh_token, {"access": access_token_data,
+                                             "refresh": refresh_token_data}
 
     def check_connect_stream(self) -> bool:
         """
@@ -243,9 +243,9 @@ class ClientManager:
                                                client_id=client_id,
                                                access_token=access,
                                                refresh_token=refresh,
-                                               expiration=config.refresh_expiration_timestamp)
+                                               expiration=config['access'].exp)
         self.authorized_clients[client_id] = auth_response
-        self._add_token_to_userdb(user, config)
+        self._add_token_to_userdb(user, config['refresh'])
         return auth_response
 
     def check_refresh_request(self, access_token: Optional[str],
@@ -256,9 +256,10 @@ class ClientManager:
             refresh_data = HanaToken(**jwt.decode(refresh_token,
                                                   self._refresh_secret,
                                                   self._jwt_algo))
-            # token_data = HanaToken(**jwt.decode(access_token,
-            #                                     self._access_secret,
-            #                                     self._jwt_algo))
+            token_data = HanaToken(**jwt.decode(access_token,
+                                                self._access_secret,
+                                                self._jwt_algo,
+                                                options={"verify_signature": False}))
             if refresh_data.purpose != "refresh":
                 raise HTTPException(status_code=400,
                                     detail="Supplied refresh token not valid")
@@ -290,7 +291,7 @@ class ClientManager:
                        }
         if self._mq_connector:
             user = self._mq_connector.read_user(username=refresh_data.sub,
-                                                access_token=refresh_token)
+                                                access_token=token_data)
             if not user.password_hash:
                 # This should not be possible, but don't let an error in the
                 # users service allow for injecting a new valid token to the db
@@ -306,18 +307,21 @@ class ClientManager:
                                                client_id=client_id,
                                                access_token=access,
                                                refresh_token=refresh,
-                                               expiration=config.refresh_expiration_timestamp)
+                                               expiration=config['access'].refresh_expiration_timestamp)
         self._authorized_clients[client_id] = auth_response
         return auth_response
 
-    def _add_token_to_userdb(self, user: User, new_token: TokenConfig):
+    def _add_token_to_userdb(self, user: User, new_token: HanaToken):
+        if new_token.purpose != "refresh":
+            raise ValueError(f"Expected a refresh token, got: "
+                             f"{new_token.purpose}")
         if self._mq_connector is None:
             print("No MQ Connection to a user database")
             return
         for idx, token in enumerate(user.tokens):
             # If the token is already defined, maintain the original
             # token_id and creation timestamp
-            if token.token_id == new_token.token_id:
+            if token.jti == new_token.jti:
                 new_token.token_name = token.token_name
                 new_token.creation_timestamp = token.creation_timestamp
                 user.tokens.remove(token)
@@ -334,16 +338,14 @@ class ClientManager:
                                       self._jwt_algo))
         return auth.client_id
 
-    def get_token_user_id(self, token: str) -> str:
+    def get_token_data(self, token: str) -> HanaToken:
         """
         Extract the user_id from a JWT string
         @param token: JWT to parse
         @retrun: user_id associated with token
         """
-        auth = HanaToken(**jwt.decode(token, self._access_secret,
+        return HanaToken(**jwt.decode(token, self._access_secret,
                                       self._jwt_algo))
-        return auth.user_id
-
 
     def validate_auth(self, token: str, origin_ip: str) -> bool:
         ratelimit_id = f"{origin_ip}-total"
