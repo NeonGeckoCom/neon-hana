@@ -235,8 +235,9 @@ class UserTokenAuth(HTTPBearer):
             if not credentials.scheme == "Bearer":
                 raise HTTPException(status_code=403,
                                     detail="Invalid authentication scheme.")
+            host = request.client.host if request.client else "127.0.0.1"
             if not self.client_manager.validate_auth(credentials.credentials,
-                                                     request.client.host):
+                                                     host):
                 raise HTTPException(status_code=403,
                                     detail="Invalid or expired token.")
             return credentials.credentials

@@ -1,4 +1,5 @@
 pytest
 mock
+httpx
 neon-iris~=0.1
 websockets~=12.0

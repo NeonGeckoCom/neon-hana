@@ -35,8 +35,9 @@ auth_route = APIRouter(prefix="/auth", tags=["authentication"])
 @auth_route.post("/login")
 async def check_login(auth_request: AuthenticationRequest,
                       request: Request) -> AuthenticationResponse:
+    ip_addr = request.client.host if request.client else "127.0.0.1"
     return client_manager.check_auth_request(**dict(auth_request),
-                                             origin_ip=request.client.host)
+                                             origin_ip=ip_addr)
 
 
 @auth_route.post("/refresh")
