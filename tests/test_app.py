@@ -18,7 +18,7 @@ _TEST_CONFIG = {
     "fastapi_summary": "Test Client Summary",
     "stt_max_length_encoded": 500000,
     "tts_max_words": 128,
-    "enable_email": False
+    "enable_email": True
 }
 
 
@@ -378,13 +378,41 @@ class TestHanaApp(TestCase):
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_backend_email(self, send_request):
-        send_request.return_value = {}
+        send_request.return_value = {"success": True}
         valid_request = {"recipient": "developers@neon.ai",
                          "subject": "API test",
                          "body": "This is a test.\nGenerated from OpenAPI.",
                          "attachments": {
                              "test.txt": "VGhpcyBpcyBhIHRlc3QgZmlsZQo="}}
-        # TODO
+
+        token = self._get_tokens()["access_token"]
+        # Valid request
+        response = self.test_app.post("/email",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+
+        # Invalid missing auth
+        response = self.test_app.post("/email",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/email",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
+
+        # Valid request failed
+        send_request.return_value = {"success": False,
+                                     "error": "Something has failed"}
+        response = self.test_app.post("/email",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 500, response.text)
+        self.assertEqual(response.json()['detail'], "Something has failed")
+
+        # TODO: Test disabled service
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_backend_metrics(self, send_request):
@@ -392,18 +420,64 @@ class TestHanaApp(TestCase):
         valid_request = {"metric_name": "Unit Test",
                          "timestamp": str(time()),
                          "metric_data": {"test": True}}
-        # TODO
+        token = self._get_tokens()["access_token"]
+
+        # Valid request
+        response = self.test_app.post("/metrics/upload",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+
+        # Invalid missing auth
+        response = self.test_app.post("/metrics/upload",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/metrics/upload",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_backend_ccl(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        send_request.return_value = {"parsed_file": "MOCK_NCS_DATA"}
+        valid_request = {"script": "MOCK_SCRIPT_DATA"}
+        token = self._get_tokens()["access_token"]
+
+        # Valid request
+        response = self.test_app.post("/ccl/parse",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()['ncs'], "MOCK_NCS_DATA")
+
+        # Invalid missing auth
+        response = self.test_app.post("/ccl/parse",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/ccl/parse",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_backend_coupons(self, send_request):
-        send_request.return_value = {}
-        valid_request = {"script": "MOCK_SCRIPT_DATA"}
-        # TODO
+        send_request.return_value = {"success": True, "brands": [],
+                                     "coupons": []}
+        token = self._get_tokens()["access_token"]
+
+        # Valid request
+        response = self.test_app.post("/coupons",
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), send_request.return_value)
+
+        # Invalid missing auth
+        response = self.test_app.post("/coupons")
+        self.assertEqual(response.status_code, 403, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_llm_chatgpt(self, send_request):
