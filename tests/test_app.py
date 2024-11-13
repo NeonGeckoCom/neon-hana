@@ -1,3 +1,4 @@
+import json
 from time import time
 from unittest import TestCase
 from unittest.mock import patch
@@ -176,42 +177,221 @@ class TestHanaApp(TestCase):
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_proxy_weather(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        send_request.return_value = {"status_code": 200,
+                                     "content": json.dumps(
+                                         {"lat": 47.6815,
+                                          "lon": -122.2087,
+                                          "timezone": "America/Los_Angeles",
+                                          "timezone_offset": -28800,
+                                          "current": {},
+                                          "minutely": [],
+                                          "hourly": [],
+                                          "daily": []})}
+        valid_request = {"lat": 47.6815,
+                         "lon": -122.2087,
+                         "unit": "metric"}
+
+        token = self._get_tokens()["access_token"]
+        # Valid request
+        response = self.test_app.post("/proxy/weather",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(),
+                         json.loads(send_request.return_value['content']),
+                         response.json())
+
+        # Invalid missing auth
+        response = self.test_app.post("/proxy/weather",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/proxy/weather",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_proxy_stock_symbol(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        send_request.return_value = {"status_code": 200,
+                                     "content": json.dumps(
+                                         {"bestMatches": []})}
+        valid_request = {"company": "microsoft",
+                         "region": "United States"}
+
+        token = self._get_tokens()["access_token"]
+        # Valid request
+        response = self.test_app.post("/proxy/stock/symbol",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()['bestMatches'],
+                         json.loads(send_request.return_value['content'])['bestMatches'],
+                         response.json())
+        self.assertEqual(response.json()['provider'], "alpha_vantage")
+
+        # Invalid missing auth
+        response = self.test_app.post("/proxy/stock/symbol",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/proxy/stock/symbol",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
+
+        # TODO test region filtering
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_proxy_stock_quote(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        send_request.return_value = {"status_code": 200,
+                                     "content": json.dumps(
+                                         {"Global Quote": {"test": "True"}})}
+        valid_request = {"symbol": "GOOG"}
+
+        token = self._get_tokens()["access_token"]
+        # Valid request
+        response = self.test_app.post("/proxy/stock/quote",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["Global Quote"],
+                         json.loads(send_request.return_value['content'])["Global Quote"],
+                         response.json())
+
+        # Invalid missing auth
+        response = self.test_app.post("/proxy/stock/quote",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/proxy/stock/quote",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_proxy_geocode(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        send_request.return_value = {"status_code": 200,
+                                     "content": json.dumps(
+                                         {"place_id": 0,
+                                          "licence": "test",
+                                          "osm_type": "test",
+                                          "osm_id": 0,
+                                          "boundingbox": ["0", "0", "0", "0"],
+                                          "lat": "47.6815",
+                                          "lon": "-122.2087",
+                                          "display_name": "test",
+                                          "class": "amenity",
+                                          "type": "post_office",
+                                          "importance": 1.0,
+                                          "alternate_results": []})}
+        valid_request = {"address": "1100 Bellevue Way NE Bellevue, WA"}
+
+        token = self._get_tokens()["access_token"]
+        # Valid request
+        response = self.test_app.post("/proxy/geolocation/geocode",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(),
+                         json.loads(send_request.return_value['content']),
+                         response.json())
+
+        # Invalid missing auth
+        response = self.test_app.post("/proxy/geolocation/geocode",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/proxy/geolocation/geocode",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_proxy_geocode_reverse(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        send_request.return_value = {"status_code": 200,
+                                     "content": json.dumps(
+                                         {"place_id": 0,
+                                          "licence": "test",
+                                          "osm_type": "test",
+                                          "osm_id": 0,
+                                          "boundingbox": ["0", "0", "0", "0"],
+                                          "lat": "47.6815",
+                                          "lon": "-122.2087",
+                                          "display_name": "test",
+                                          "address": {}})}
+
+        valid_request = {"lat": 47.6815, "lon": -122.2087}
+
+        token = self._get_tokens()["access_token"]
+        # Valid request
+        response = self.test_app.post("/proxy/geolocation/reverse",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(),
+                         json.loads(send_request.return_value['content']),
+                         response.json())
+
+        # Invalid missing auth
+        response = self.test_app.post("/proxy/geolocation/reverse",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/proxy/geolocation/reverse",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_proxy_wolfram(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        send_request.return_value = {"status_code": 200,
+                                     "content": "answer"}
+        valid_request = {"api": "spoken", "lat": 47.6815, "lon": -122.2087,
+                         "query": "how far away is the moon"}
+
+        token = self._get_tokens()["access_token"]
+        # Valid request
+        response = self.test_app.post("/proxy/wolframalpha",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(),
+                         {"answer": send_request.return_value['content']},
+                         response.json())
+
+        # Invalid missing auth
+        response = self.test_app.post("/proxy/wolframalpha",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
+
+        # Invalid request
+        self.assertEqual(self.test_app.post(
+            "/proxy/wolframalpha",
+            headers={"Authorization": f"Bearer {token}"}).status_code,
+                         422, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_backend_email(self, send_request):
         send_request.return_value = {}
+        valid_request = {"recipient": "developers@neon.ai",
+                         "subject": "API test",
+                         "body": "This is a test.\nGenerated from OpenAPI.",
+                         "attachments": {
+                             "test.txt": "VGhpcyBpcyBhIHRlc3QgZmlsZQo="}}
         # TODO
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_backend_metrics(self, send_request):
         send_request.return_value = {}
+        valid_request = {"metric_name": "Unit Test",
+                         "timestamp": str(time()),
+                         "metric_data": {"test": True}}
         # TODO
 
     @patch("neon_hana.mq_service_api.send_mq_request")
@@ -222,6 +402,7 @@ class TestHanaApp(TestCase):
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_backend_coupons(self, send_request):
         send_request.return_value = {}
+        valid_request = {"script": "MOCK_SCRIPT_DATA"}
         # TODO
 
     @patch("neon_hana.mq_service_api.send_mq_request")

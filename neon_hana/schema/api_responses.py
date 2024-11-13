@@ -34,7 +34,7 @@ class WeatherAPIOnecallResponse(BaseModel):
     timezone: str
     timezone_offset: int
     current: Dict[str, Any]
-    minutely: Optional[List[dict]]
+    minutely: Optional[List[dict]] = None
     hourly: List[dict]
     daily: List[dict]
 
@@ -1742,7 +1742,8 @@ class WeatherAPIOnecallResponse(BaseModel):
 
 
 class StockAPIQuoteResponse(BaseModel):
-    global_quote: Dict[str, str] = Field(..., alias="Global Quote")
+    provider: str
+    global_quote: Dict[str, str] = Field(alias="Global Quote")
 
     model_config = {
         "extra": "allow",
@@ -1767,6 +1768,8 @@ class StockAPIQuoteResponse(BaseModel):
 
 
 class StockAPISearchResponse(BaseModel):
+    provider: str
+    best_matches: List[Dict[str, str]] = Field(alias="bestMatches")
     model_config = {
         "extra": "allow",
         "json_schema_extra": {
