@@ -283,12 +283,13 @@ class ClientManager:
             raise HTTPException(status_code=403,
                                 detail="Access token does not match client_id")
 
-        # `token_name` is not known here, but it will be read from the database
-        # when the new token replaces the old one
         encode_data = {"user_id": refresh_data.sub,
                        "client_id": client_id,
+                       "token_name": refresh_data.token_name,
                        "permissions": PermissionsConfig.from_roles(refresh_data.roles)
                        }
+        access, refresh, tokens = self._create_tokens(**encode_data)
+        username = refresh_data.sub
         if self._mq_connector:
             user = self._mq_connector.read_user(username=refresh_data.sub,
                                                 access_token=token_data)
@@ -296,18 +297,13 @@ class ClientManager:
                 # This should not be possible, but don't let an error in the
                 # users service allow for injecting a new valid token to the db
                 raise HTTPException(status_code=500, detail="Error Fetching User")
-            access, refresh, config = self._create_tokens(**encode_data)
-            username = user.username
-            self._add_token_to_userdb(user, config)
-        else:
-            username = refresh_data.sub
-            access, refresh, config = self._create_tokens(**encode_data)
+            self._add_token_to_userdb(user, tokens['refresh'])
 
         auth_response = AuthenticationResponse(username=username,
                                                client_id=client_id,
                                                access_token=access,
                                                refresh_token=refresh,
-                                               expiration=config['access'].refresh_expiration_timestamp)
+                                               expiration=tokens['refresh'].exp)
         self._authorized_clients[client_id] = auth_response
         return auth_response
 
@@ -320,9 +316,8 @@ class ClientManager:
             return
         for idx, token in enumerate(user.tokens):
             # If the token is already defined, maintain the original
-            # token_id and creation timestamp
+            # creation timestamp
             if token.jti == new_token.jti:
-                new_token.token_name = token.token_name
                 new_token.creation_timestamp = token.creation_timestamp
                 user.tokens.remove(token)
         user.tokens.append(new_token)

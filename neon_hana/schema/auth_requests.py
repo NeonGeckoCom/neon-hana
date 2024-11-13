@@ -53,7 +53,8 @@ class AuthenticationResponse(BaseModel):
     client_id: str
     access_token: str
     refresh_token: str
-    expiration: float
+    expiration: float = Field(
+        description="Expiration timestamp of the refresh token")
 
     model_config = {
         "json_schema_extra": {
