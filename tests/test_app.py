@@ -530,9 +530,16 @@ class TestHanaApp(TestCase):
                                       headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(response.status_code, 422, response.text)
 
-    @patch("neon_hana.mq_service_api.send_mq_request")
-    def test_util_headers(self, send_request):
-        send_request.return_value = {}
-        # TODO
+    def test_util_client_ip(self):
+        response = self.test_app.get("/util/client_ip")
+        self.assertEqual(response.text, "127.0.0.1")
+
+    def test_util_headers(self):
+        test_headers = {"X-Auth-Token": "Token",
+                        "Authorization": "Test Auth",
+                        "My Custom Header": "Value"}
+        response = self.test_app.get("/util/headers", headers=test_headers)
+        for key, val in test_headers.items():
+            self.assertEqual(response.json()[key.lower()], val, response.json())
 
 # TODO: Define node endpoint tests

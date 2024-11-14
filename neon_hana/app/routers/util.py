@@ -34,11 +34,13 @@ util_route = APIRouter(prefix="/util", tags=["utilities"])
 
 @util_route.get("/client_ip", response_class=PlainTextResponse)
 async def api_client_ip(request: Request) -> str:
-    client_manager.validate_auth("", request.client.host)
-    return request.client.host
+    ip_addr = request.client.host if request.client else "127.0.0.1"
+    client_manager.validate_auth("", ip_addr)
+    return ip_addr
 
 
 @util_route.get("/headers")
 async def api_headers(request: Request):
-    client_manager.validate_auth("", request.client.host)
+    ip_addr = request.client.host if request.client else "127.0.0.1"
+    client_manager.validate_auth("", ip_addr)
     return request.headers
