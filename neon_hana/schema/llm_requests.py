@@ -24,7 +24,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from typing import List
+from typing import List, Tuple
 
 from pydantic import BaseModel
 
@@ -42,11 +42,11 @@ class LLMRequest(BaseModel):
 
 class LLMResponse(BaseModel):
     response: str
-    history: List[tuple]
+    history: List[Tuple[str, str]]
     model_config = {
         "json_schema_extra": {
             "examples": [{
-                "query": "I am well, how about you?",
+                "response": "As a large language model, I do not feel",
                 "history": [("user", "hello"),
                             ("llm", "Hi, how can I help you today?"),
                             ("user", "I am well, how about you?"),

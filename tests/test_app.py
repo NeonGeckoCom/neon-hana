@@ -480,34 +480,55 @@ class TestHanaApp(TestCase):
         self.assertEqual(response.status_code, 403, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
-    def test_llm_chatgpt(self, send_request):
-        send_request.return_value = {}
-        # TODO
+    def test_llm(self, send_request):
+        send_request.return_value = {"response": "MOCK_LLM_RESPONSE"}
+        valid_request = {"query": "how are you?",
+                         "history": [("user", "hello"),
+                                     ("llm", "Hi, how can I help you today?")]}
+        # Responses are lists instead of tuples because Pydantic will auto-cast
+        # for JSON encoding
+        valid_response = {"response": "MOCK_LLM_RESPONSE",
+                          "history": [["user", "hello"],
+                                      ["llm", "Hi, how can I help you today?"],
+                                      ["user", "how are you?"],
+                                      ["llm", "MOCK_LLM_RESPONSE"]]}
+        token = self._get_tokens()["access_token"]
+        # ChatGPT
+        response = self.test_app.post("/llm/chatgpt",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), valid_response)
 
-    @patch("neon_hana.mq_service_api.send_mq_request")
-    def test_llm_fastchat(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        # Fastchat
+        response = self.test_app.post("/llm/fastchat",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), valid_response)
 
-    @patch("neon_hana.mq_service_api.send_mq_request")
-    def test_llm_gemini(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        # Claude
+        response = self.test_app.post("/llm/claude",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), valid_response)
 
-    @patch("neon_hana.mq_service_api.send_mq_request")
-    def test_llm_claude(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        # Palm
+        response = self.test_app.post("/llm/palm",
+                                      json=valid_request,
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), valid_response)
 
-    @patch("neon_hana.mq_service_api.send_mq_request")
-    def test_llm_palm(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        # Invalid requests
+        response = self.test_app.post("/llm/chatgpt",
+                                      json=valid_request)
+        self.assertEqual(response.status_code, 403, response.text)
 
-    @patch("neon_hana.mq_service_api.send_mq_request")
-    def test_util_client_ip(self, send_request):
-        send_request.return_value = {}
-        # TODO
+        response = self.test_app.post("/llm/chatgpt",
+                                      headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_util_headers(self, send_request):
