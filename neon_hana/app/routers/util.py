@@ -35,6 +35,10 @@ util_route = APIRouter(prefix="/util", tags=["utilities"])
 @util_route.get("/client_ip", response_class=PlainTextResponse)
 async def api_client_ip(request: Request) -> str:
     ip_addr = request.client.host if request.client else "127.0.0.1"
+    if len(ip_addr.split('.')) != 4:
+        # Reported host is a hostname, not an IP address. Return a generic
+        # loopback value
+        ip_addr = "127.0.0.1"
     client_manager.validate_auth("", ip_addr)
     return ip_addr
 
