@@ -10,6 +10,7 @@ _TEST_CONFIG = {
     "access_token_ttl": 86400,  # 1 day
     "refresh_token_ttl": 604800,  # 1 week
     "requests_per_minute": 60,
+    "auth_requests_per_minute": 60,
     "access_token_secret": "a800445648142061fc238d1f84e96200da87f4f9f784108ac90db8b4391b117b",
     "refresh_token_secret": "833d369ac73d883123743a44b4a7fe21203cffc956f4c8a99be6e71aafa8e1aa",
     "server_host": "0.0.0.0",
@@ -41,6 +42,7 @@ class TestHanaApp(TestCase):
                                           json={"username": "guest",
                                                 "password": "password"})
             self.tokens = response.json()
+            self.assertIn("access_token", self.tokens, self.tokens)
         return self.tokens
 
     def test_app_init(self):
