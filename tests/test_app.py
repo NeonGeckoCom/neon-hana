@@ -532,6 +532,16 @@ class TestHanaApp(TestCase):
                                       headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(response.status_code, 422, response.text)
 
+    def test_util_is_ipv4(self):
+        from neon_hana.app.routers.util import _is_ipv4
+        self.assertTrue(_is_ipv4("127.0.0.1"))
+        self.assertTrue(_is_ipv4("10.0.0.10"))
+        self.assertTrue(_is_ipv4("1.1.1.1"))
+        self.assertFalse(_is_ipv4("ai.neon.api.1"))
+        self.assertFalse(_is_ipv4("host.local"))
+        self.assertFalse(_is_ipv4("localhost"))
+        self.assertFalse(_is_ipv4("1.0.0.300"))
+
     def test_util_client_ip(self):
         response = self.test_app.get("/util/client_ip")
         self.assertEqual(response.text, "127.0.0.1")
