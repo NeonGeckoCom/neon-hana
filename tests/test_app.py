@@ -38,7 +38,11 @@ class TestHanaApp(TestCase):
         app = create_app(_TEST_CONFIG)
         cls.test_app = TestClient(app)
 
-    def _get_tokens(self):
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def _get_tokens(self, send_request):
+        valid_user = User(username="guest", password_hash="password")
+        send_request.return_value = {"user": valid_user.model_dump(),
+                                     "success": True}
         if not self.tokens:
             response = self.test_app.post("/auth/login",
                                           json={"username": "guest",
