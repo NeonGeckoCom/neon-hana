@@ -127,8 +127,8 @@ class TestClientManager(unittest.TestCase):
 
         # Test valid refresh
         valid_refresh = self.client_manager.check_refresh_request(
-            access, refresh, config.client_id)
-        self.assertEqual(valid_refresh.client_id, config.client_id)
+            access, refresh, config['access'].client_id)
+        self.assertEqual(valid_refresh.client_id, config['access'].client_id)
         self.assertNotEqual(valid_refresh.access_token, access)
         self.assertNotEqual(valid_refresh.refresh_token, refresh)
 

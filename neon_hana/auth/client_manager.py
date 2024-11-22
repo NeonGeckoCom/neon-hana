@@ -272,9 +272,9 @@ class ClientManager:
         except ExpiredSignatureError:
             raise HTTPException(status_code=401,
                                 detail="Refresh token is expired")
-        # if refresh_data.jti != token_data.jti + ".refresh":
-        #     raise HTTPException(status_code=403,
-        #                         detail="Refresh and access token mismatch")
+        if refresh_data.jti != token_data.jti + ".refresh":
+            raise HTTPException(status_code=403,
+                                detail="Refresh and access token mismatch")
         if time() > refresh_data.exp:
             raise HTTPException(status_code=401,
                                 detail="Refresh token is expired")
