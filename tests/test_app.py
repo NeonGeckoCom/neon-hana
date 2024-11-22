@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from neon_data_models.models.user import User
+
 _TEST_CONFIG = {
     "mq_default_timeout": 10,
     "access_token_ttl": 86400,  # 1 day
@@ -52,12 +54,14 @@ class TestHanaApp(TestCase):
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_auth_login(self, send_request):
-        send_request.return_value = {}  # TODO: Define valid login
+        valid_user = User(username="guest", password_hash="password")
+        send_request.return_value = {"user": valid_user.model_dump(),
+                                     "success": True}
 
         # Valid Login
         response = self.test_app.post("/auth/login",
-                                      json={"username": "guest",
-                                            "password": "password"})
+                                      json={"username": valid_user.username,
+                                            "password": valid_user.password_hash})
         response_data = response.json()
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response_data['username'], "guest")
@@ -66,7 +70,13 @@ class TestHanaApp(TestCase):
         self.assertGreater(response_data['expiration'], time())
 
         # Invalid Login
-        # TODO: Define invalid login request
+        send_request.return_value = {"code": 404, "error": "User not found"}
+        response = self.test_app.post("/auth/login",
+                                      json={"username": valid_user.username,
+                                            "password": valid_user.password_hash})
+        self.assertEqual(response.status_code, 404, response.status_code)
+        self.assertEqual(response.json()['detail'],
+                         "User not found", response.text)
 
         # Invalid Request
         self.assertEqual(self.test_app.post("/auth/login").status_code, 422)
@@ -76,7 +86,9 @@ class TestHanaApp(TestCase):
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_auth_refresh(self, send_request):
-        send_request.return_value = {}  # TODO: Define valid refresh
+        valid_user = User(username="guest", password_hash="password")
+        send_request.return_value = {"user": valid_user.model_dump(),
+                                     "success": True}
 
         valid_tokens = self._get_tokens()
 
@@ -86,14 +98,12 @@ class TestHanaApp(TestCase):
         response_data = response.json()
         self.assertNotEqual(response_data, valid_tokens)
 
-        # # TODO
-        # # Refresh with old tokens fails
-        # response = self.test_app.post("/auth/refresh", json=valid_tokens)
-        # self.assertEqual(response.status_code, 422, response.text)
-
-        # Valid request with new tokens
-        response = self.test_app.post("/auth/refresh", json=response_data)
-        self.assertEqual(response.status_code, 200, response.text)
+        # Refresh with old tokens fails (mocked return from users service)
+        send_request.return_value = {"code": 422,
+                                     "detail": "Invalid token",
+                                     "success": False}
+        response = self.test_app.post("/auth/refresh", json=valid_tokens)
+        self.assertEqual(response.status_code, 422, response.text)
 
         # TODO: Test with expired token
 
