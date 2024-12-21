@@ -29,6 +29,7 @@ from fastapi import FastAPI, Response
 from neon_hana.app.dependencies import client_manager, jwt_bearer, mq_connector  # noqa: F401
 from neon_hana.app.routers.api_proxy import proxy_route
 from neon_hana.app.routers.assist import assist_route
+from neon_hana.app.routers.brainforge import bf_route
 from neon_hana.app.routers.llm import llm_route
 from neon_hana.app.routers.mq_backend import mq_route
 from neon_hana.app.routers.auth import auth_route
@@ -51,6 +52,7 @@ def create_app(config: dict):
     app.include_router(util_route)
     app.include_router(node_route)
     app.include_router(user_route)
+    app.include_router(bf_route)
 
 
     @app.get("/status")
