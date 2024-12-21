@@ -35,6 +35,7 @@ from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import DecodeError, ExpiredSignatureError
 from ovos_utils import LOG
+from pydantic import ValidationError
 from token_throttler import TokenThrottler, TokenBucket
 from token_throttler.storage import RuntimeStorage
 
@@ -363,6 +364,8 @@ class ClientManager:
                 username=auth.sub, client_id=auth.client_id, access_token=token,
                 refresh_token="", expiration=auth.exp)
             return True
+        except ValidationError:
+            LOG.error(f"Invalid token data received from {origin_ip}.")
         except DecodeError:
             # Invalid token supplied
             pass
