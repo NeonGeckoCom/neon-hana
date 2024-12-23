@@ -23,10 +23,10 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-from uuid import uuid4
 
 import jwt
 
+from uuid import uuid4
 from datetime import datetime
 from threading import Lock
 from time import time
@@ -35,6 +35,7 @@ from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import DecodeError, ExpiredSignatureError
 from ovos_utils import LOG
+from ovos_utils.log import log_deprecation
 from pydantic import ValidationError
 from token_throttler import TokenThrottler, TokenBucket
 from token_throttler.storage import RuntimeStorage
@@ -87,7 +88,7 @@ class ClientManager:
         known by this instance. NOTE: Refresh tokens are not reliably stored
         here and should never be retrievable after generation for security.
         """
-        # TODO: Is `authorized_clients` useful to track?
+        log_deprecation("This property is deprecated with no replacement", "1.0.0")
         return self._authorized_clients
 
     def _create_tokens(self,
@@ -188,7 +189,7 @@ class ClientManager:
         if self._mq_connector:
             return self._mq_connector.create_user(new_user)
         else:
-            print("No User Database connected. Return valid registration.")
+            LOG.debug("No User Database connected. Return valid registration.")
             return new_user
 
     def check_auth_request(self, client_id: str, username: str,
@@ -313,7 +314,7 @@ class ClientManager:
             raise ValueError(f"Expected a refresh token, got: "
                              f"{new_token.purpose}")
         if self._mq_connector is None:
-            print("No MQ Connection to a user database")
+            LOG.debug("No MQ Connection to a user database")
             return
         for idx, token in enumerate(user.tokens):
             # If the token is already defined, maintain the original
