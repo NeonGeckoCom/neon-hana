@@ -52,7 +52,8 @@ _DEFAULT_USER_PERMISSIONS = PermissionsConfig(klat=AccessRoles.USER,
                                               diana=AccessRoles.USER,
                                               node=AccessRoles.USER,
                                               hub=AccessRoles.USER,
-                                              llm=AccessRoles.USER)
+                                              llm=AccessRoles.USER,
+                                              users=AccessRoles.NONE)
 
 
 class ClientManager:
@@ -274,6 +275,10 @@ class ClientManager:
         except ExpiredSignatureError:
             raise HTTPException(status_code=401,
                                 detail="Refresh token is expired")
+        except ValidationError:
+            raise HTTPException(status_code=400,
+                                detail=f"Invalid token data received from "
+                                       f"client: {client_id}.")
         if refresh_data.jti != token_data.jti + ".refresh":
             raise HTTPException(status_code=403,
                                 detail="Refresh and access token mismatch")
