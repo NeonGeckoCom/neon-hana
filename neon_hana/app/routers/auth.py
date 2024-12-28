@@ -24,11 +24,12 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import APIRouter, Request
-
-from neon_hana.app.dependencies import client_manager
-from neon_hana.schema.auth_requests import *
+from fastapi import APIRouter, Request, Depends
+from neon_data_models.models.user.database import PermissionsConfig
 from neon_data_models.models.user import User
+
+from neon_hana.app.dependencies import client_manager, jwt_bearer
+from neon_hana.schema.auth_requests import *
 
 auth_route = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -51,3 +52,8 @@ async def register_user(register_request: RegistrationRequest,
                         request: Request) -> User:
     return client_manager.check_registration_request(**dict(register_request),
                                                      origin_ip=request.client.host)
+
+
+@auth_route.post("/permissions")
+async def check_permissions(token: str = Depends(jwt_bearer)) -> PermissionsConfig:
+    return client_manager.get_token_permissions(token)

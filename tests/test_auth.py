@@ -29,6 +29,10 @@ from time import time, sleep
 from uuid import uuid4
 
 from fastapi import HTTPException
+from jwt import DecodeError
+
+from neon_data_models.enum import AccessRoles
+from neon_data_models.models.user.database import PermissionsConfig
 
 
 class TestClientManager(unittest.TestCase):
@@ -173,3 +177,23 @@ class TestClientManager(unittest.TestCase):
         self.client_manager._max_streaming_clients = False
         self.assertTrue(self.client_manager.check_connect_stream())
         self.assertEqual(self.client_manager._connected_streams, 5)
+
+    def test_get_token_permissions(self):
+        permissions = PermissionsConfig(core=AccessRoles.USER,
+                                        diana=AccessRoles.USER,
+                                        node=AccessRoles.USER,
+                                        llm=AccessRoles.USER,
+                                        users=AccessRoles.USER)
+        valid_token, _, _ = self.client_manager._create_tokens("test_user",
+                                                               "test_client",
+                                                               "test_name",
+                                                               permissions)
+
+        # Valid token decodes
+        self.assertEqual(self.client_manager.get_token_permissions(valid_token),
+                         permissions)
+
+        # Invalid token raises exception
+        with self.assertRaises(DecodeError):
+            self.client_manager.get_token_permissions("invalid_token_string")
+
