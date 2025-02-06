@@ -1,4 +1,4 @@
-name: Publish Updated Docker dev image
+name: Publish Updated Docker image
 on:
   workflow_dispatch:
 
