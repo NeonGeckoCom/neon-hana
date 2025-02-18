@@ -4,7 +4,7 @@ uvicorn~=0.25
 pydantic~=2.5
 pyjwt~=2.8
 token-throttler~=1.4
-neon-mq-connector~=0.7
+neon-mq-connector~=0.7,>=0.8.1a3
 ovos-config~=0.0,>=0.0.12
 ovos-utils~=0.0,>=0.0.38
 neon-data-models
