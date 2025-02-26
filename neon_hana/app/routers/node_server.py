@@ -35,6 +35,8 @@ from starlette.websockets import WebSocketDisconnect
 from neon_hana.app.dependencies import config, client_manager
 from neon_hana.mq_websocket_api import MQWebsocketAPI, ClientNotKnown
 
+from neon_data_models.enum import AccessRoles
+from neon_data_models.models.user.database import PermissionsConfig
 from neon_data_models.models.api.node_v1 import (NodeAudioInput, NodeGetStt,
                                                  NodeGetTts, NodeKlatResponse,
                                                  NodeAudioInputResponse,
@@ -58,7 +60,11 @@ async def node_v1_endpoint(websocket: WebSocket, token: str):
     if not client_manager.validate_auth(token, client_id):
         raise HTTPException(status_code=403,
                             detail="Invalid or expired token.")
-    if not client_manager.get_permissions(client_id).node:
+    permissions = PermissionsConfig.from_roles(
+        client_manager.get_token_data(token).roles)
+    if not any((permissions.node > AccessRoles.GUEST,
+                permissions.node == AccessRoles.NODE,
+                config.get("disable_auth"))):
         raise HTTPException(status_code=401,
                             detail=f"Client not authorized for node access "
                                    f"({client_id})")
