@@ -371,7 +371,7 @@ class ClientManager:
                 refresh_token="", expiration=auth.exp)
             return True
         except ValidationError:
-            LOG.error(f"Invalid token data received from {origin_ip}.")
+            LOG.warning(f"Invalid token data received from {origin_ip}.")
         except DecodeError:
             # Invalid token supplied
             pass
