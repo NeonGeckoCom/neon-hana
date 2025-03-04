@@ -78,7 +78,9 @@ class MQServiceManager:
                 if isinstance(resp, list):
                     return {**resp.pop(0),
                             **{"alternate_results": resp}}
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, IndexError):
+                # JSONDecodeError handles any malformed `content` in responses
+                # IndexError handles reverse Geocode API errors
                 resp = response['content']
             # Wolfram Spoken API returns a string; reformat that to a dict
             if isinstance(resp, str):
