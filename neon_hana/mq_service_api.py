@@ -49,7 +49,7 @@ class APIError(HTTPException):
 class MQServiceManager:
     def __init__(self, config: dict):
         self.mq_default_timeout = config.get('mq_default_timeout', 10)
-        self.mq_cliend_id = config.get('mq_client_id') or str(uuid4())
+        self.mq_client_id = config.get('mq_client_id') or str(uuid4())
         self.stt_max_length = config.get('stt_max_length_encoded') or 500000
         self.tts_max_words = config.get('tts_max_words') or 128
         self.email_enabled = config.get('enable_email')
@@ -189,11 +189,12 @@ class MQServiceManager:
         return self._validate_api_proxy_response(response, query_params)
 
     def query_llm(self, llm_name: str, query: str, history: List[tuple]):
+        # TODO: Longer timeout
         response = send_mq_request("/llm", {"query": query,
                                             "history": history},
                                    f"{llm_name}_input",
                                    response_queue=f"{llm_name}_"
-                                                  f"{self.mq_cliend_id}")
+                                                  f"{self.mq_client_id}")
         response = response.get('response') or ""
         history.append(("user", query))
         history.append(("llm", response))
@@ -248,12 +249,12 @@ class MQServiceManager:
                            detail=f"Audio exceeds maximum encoded length of "
                                   f"{self.stt_max_length}")
         request_data = {"msg_type": "neon.get_stt",
-                                    "data": {"audio_data": encoded_audio,
-                                             "utterances": [""],  # TODO: Compat
-                                             "lang": lang_code},
-                                    "context": {"source": "hana",
-                                                "ident": f"{self.mq_cliend_id}"
-                                                         f"{time()}"}}
+                        "data": {"audio_data": encoded_audio,
+                                 "utterances": [""],  # TODO: Compat
+                                 "lang": lang_code},
+                        "context": {"source": "hana",
+                                    "ident": f"{self.mq_client_id}"
+                                             f"{time()}"}}
         response = send_mq_request("/neon_chat_api", request_data,
                                    "neon_chat_api_request",
                                    timeout=self.mq_default_timeout)
@@ -272,7 +273,7 @@ class MQServiceManager:
                                              "lang": lang_code},
                                  "lang": lang_code},
                         "context": {"source": "hana",
-                                    "ident": f"{self.mq_cliend_id}{time()}"}}
+                                    "ident": f"{self.mq_client_id}{time()}"}}
         response = send_mq_request("/neon_chat_api", request_data,
                                    "neon_chat_api_request",
                                    timeout=self.mq_default_timeout)
@@ -283,7 +284,7 @@ class MQServiceManager:
                      user_profile: UserProfile, node_data: NodeData):
         session = self.get_session(node_data)
         user_profile.user.username = (user_profile.user.username or
-                                      self.mq_cliend_id)
+                                      self.mq_client_id)
 
         request_data = {"msg_type": "recognizer_loop:utterance",
                         "data": {"utterances": [utterance],
@@ -295,7 +296,7 @@ class MQServiceManager:
                                     "session": session,
                                     "node_data": node_data.model_dump(
                                         mode="json"),
-                                    "ident": f"{self.mq_cliend_id}{time()}"}}
+                                    "ident": f"{self.mq_client_id}{time()}"}}
         response = send_mq_request("/neon_chat_api", request_data,
                                    "neon_chat_api_request",
                                    timeout=self.mq_default_timeout)
