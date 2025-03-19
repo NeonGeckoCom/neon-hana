@@ -344,10 +344,19 @@ class ClientManager:
         """
         Extract the user_id from a JWT string
         @param token: JWT to parse
-        @retrun: user_id associated with token
+        @return: user_id associated with token
         """
         return HanaToken(**jwt.decode(token, self._access_secret,
                                       self._jwt_algo))
+
+    def get_token_permissions(self, token: str) -> PermissionsConfig:
+        """
+        Get a PermissionsConfig object from a JWT Token
+        @param token: JWT to parse
+        @return: PermissionsConfig object representing the token permissions
+        """
+        roles = self.get_token_data(token).roles
+        return PermissionsConfig.from_roles(roles)
 
     def validate_auth(self, token: str, origin_ip: str) -> bool:
         ratelimit_id = f"{origin_ip}-total"
