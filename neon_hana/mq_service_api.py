@@ -27,7 +27,7 @@
 import json
 
 from time import time
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List, Tuple, Union
 from uuid import uuid4
 from fastapi import HTTPException
 
@@ -93,7 +93,7 @@ class MQServiceManager:
                                                 ReadUserRequest,
                                                 UpdateUserRequest,
                                                 DeleteUserRequest]) -> \
-            (int, Union[User, str]):
+            Tuple[int, Union[User, str]]:
         """
         Query the users API and return a status code and either a valid User or
         a string error message. Authentication may use EITHER a password or
@@ -119,7 +119,8 @@ class MQServiceManager:
         session_id = node_data.device_id
         self.sessions_by_id.setdefault(session_id,
                                        {"session_id": session_id,
-                                        "site_id": node_data.location.site_id})
+                                        "site_id": node_data.location.site_id 
+                                                   or "unknown"})
         return self.sessions_by_id[session_id]
 
     def create_user(self, user: User) -> User:
