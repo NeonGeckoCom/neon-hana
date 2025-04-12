@@ -30,32 +30,37 @@ from neon_hana.app.dependencies import jwt_bearer, mq_connector
 from neon_data_models.models.api.http.brainforge import LLMGetModelsHttpResponse, LLMGetPersonasHttpRequest, \
     LLMGetPersonasHttpResponse, LLMGetInferenceHttpRequest
 from neon_data_models.models.api.llm import LLMResponse
+from neon_data_models.enum import AccessRoles
 
 
 bf_route = APIRouter(prefix="/brainforge", tags=["llm"],
                      dependencies=[Depends(jwt_bearer)])
 
+def _validate_permissions(token: str):
+    permissions = jwt_bearer.client_manager.get_token_permissions(token)
+    if permissions.llm < AccessRoles.GUEST:
+            raise PermissionError("Insufficient permissions to access LLM service")
 
 @bf_route.post("/get_models")
 async def bf_get_models(token: str = Depends(jwt_bearer)) -> LLMGetModelsHttpResponse:
-    # user_id = jwt_bearer.client_manager.get_token_data(token).sub
-    user_id = "CHANGE_ME"
+    _validate_permissions(token)
+    user_id = jwt_bearer.client_manager.get_token_data(token).sub
     return mq_connector.get_brainforge_models(user_id)
 
 
 @bf_route.post("/get_personas")
 async def bf_get_personas(request: LLMGetPersonasHttpRequest,
                           token: str = Depends(jwt_bearer)) -> LLMGetPersonasHttpResponse:
-    # user_id = jwt_bearer.client_manager.get_token_data(token).sub
-    user_id = "CHANGE_ME"
+    _validate_permissions(token)
+    user_id = jwt_bearer.client_manager.get_token_data(token).sub
     return mq_connector.get_brainforge_model_personas(request.model_id, user_id)
 
 
 @bf_route.post("/get_inference")
 async def bf_get_inference(request: LLMGetInferenceHttpRequest,
                            token: str = Depends(jwt_bearer)) -> LLMResponse:
-    # user_id = jwt_bearer.client_manager.get_token_data(token).sub
-    user_id = "CHANGE_ME"
+    _validate_permissions(token)
+    user_id = jwt_bearer.client_manager.get_token_data(token).sub
     return mq_connector.get_brainforge_model_inference(request, user_id)
 
 
