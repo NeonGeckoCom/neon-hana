@@ -341,7 +341,8 @@ class MQServiceManager:
     def get_brainforge_model_inference(self, request: LLMGetInferenceHttpRequest,
                                        user_id: str) -> LLMResponse:
 
-        request.llm = f"{request.llm_name}@{request.llm_revision}"
+        request.model = request.model or \
+            f"{request.llm_name}@{request.llm_revision}"
         request_data = request.model_dump()
         request_data["user_id"] = user_id
         response = send_mq_request("/brainforge", request_data,
