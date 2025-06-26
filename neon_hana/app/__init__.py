@@ -24,9 +24,9 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 
-from neon_hana.app.dependencies import client_manager, jwt_bearer, mq_connector
+from neon_hana.app.dependencies import client_manager, jwt_bearer, mq_connector  # noqa: F401
 from neon_hana.app.routers.api_proxy import proxy_route
 from neon_hana.app.routers.assist import assist_route
 from neon_hana.app.routers.llm import llm_route
@@ -34,7 +34,7 @@ from neon_hana.app.routers.mq_backend import mq_route
 from neon_hana.app.routers.auth import auth_route
 from neon_hana.app.routers.user import user_route
 from neon_hana.app.routers.util import util_route
-from neon_hana.app.routers.node_server import node_route
+from neon_hana.app.routers.node_server import node_route, socket_api
 from neon_hana.version import __version__
 
 
@@ -51,5 +51,23 @@ def create_app(config: dict):
     app.include_router(util_route)
     app.include_router(node_route)
     app.include_router(user_route)
+
+
+    @app.get("/status")
+    def get_status():
+        """
+        Get service status
+        """
+        if not client_manager.check_health():
+            return Response(status_code=500,
+                            content="Client manager is not healthy")
+        if not mq_connector.check_health():
+            return Response(status_code=500,
+                            content="MQ Connector is not healthy")
+        if socket_api and not socket_api.check_health():
+            return Response(status_code=500,
+                            content="Websocket API is not healthy")
+        return Response(status_code=200, content="Ready")
+
 
     return app

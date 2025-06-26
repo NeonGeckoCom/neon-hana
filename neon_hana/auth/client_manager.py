@@ -30,7 +30,7 @@ from uuid import uuid4
 from datetime import datetime
 from threading import Lock
 from time import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import DecodeError, ExpiredSignatureError
@@ -92,12 +92,22 @@ class ClientManager:
         log_deprecation("This property is deprecated with no replacement", "1.0.0")
         return self._authorized_clients
 
+    def check_health(self) -> bool:
+        if self._mq_connector is None and not self._disable_auth:
+            LOG.error("Auth enabled, but no MQ Connection is available")
+            return False
+        if not all((self._access_secret, self._refresh_secret)):
+            LOG.error("Invalid token configuration. `access_token_secret` "
+                      "and `refresh_token_secret` must be configured.")
+            return False
+        return True
+
     def _create_tokens(self,
                        user_id: str,
                        client_id: str,
                        token_name: Optional[str] = None,
                        permissions: Optional[PermissionsConfig] = None,
-                       **kwargs) -> (str, str, Dict[str, HanaToken]):
+                       **kwargs) -> Tuple[str, str, Dict[str, HanaToken]]:
         token_id = str(uuid4())
         # Subtract a second from creation so the token may be used immediately
         # upon return
