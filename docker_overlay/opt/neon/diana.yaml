@@ -9,8 +9,8 @@ logs:
       - openai
     debug: []
 MQ:
-  server: neon-rabbitmq
-  port: 5672
+  server: hana.neonaialpha.com
+  port: 25672
   users:
     mq_handler:
       user: neon_api_utils
