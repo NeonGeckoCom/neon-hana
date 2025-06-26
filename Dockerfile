@@ -14,8 +14,7 @@ RUN apt-get update && \
     gcc \
     libpulse-dev \
     portaudio19-dev \
-    curl \
-    jq
+    curl
 
 COPY docker_overlay/ /
 
