@@ -55,6 +55,13 @@ class MQWebsocketAPI(NeonAIClient):
         self._session_lock = RLock()
         self._client = "neon_node_websocket"
 
+    def check_health(self) -> bool:
+        """
+        Check if the MQ connection is healthy.
+        @return: True if the connection is healthy, False otherwise
+        """
+        return self.connection.check_health()
+
     def new_connection(self, ws: WebSocket, session_id: str):
         """
         Record a new client connection to associate the WebSocket with the

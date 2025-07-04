@@ -55,6 +55,14 @@ class MQServiceManager:
         self.email_enabled = config.get('enable_email')
         self.sessions_by_id = dict()
 
+    def check_health(self) -> bool:
+        """
+        Check if the MQ service is healthy.
+        @returns: True if healthy, False otherwise
+        """
+        # TODO: Implement an actual check here
+        return True
+    
     @staticmethod
     def _validate_api_proxy_response(response: dict, query_params: dict):
         response.setdefault('content',
