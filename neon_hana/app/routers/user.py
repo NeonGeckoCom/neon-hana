@@ -29,20 +29,23 @@ from neon_hana.app.dependencies import jwt_bearer, mq_connector
 from neon_hana.schema.user_requests import GetUserRequest, UpdateUserRequest
 from neon_data_models.models.user import User
 
-user_route = APIRouter(tags=["user"], dependencies=[Depends(jwt_bearer)])
+user_route = APIRouter(
+    prefix="/user", tags=["user"], dependencies=[Depends(jwt_bearer)]
+)
 
 
 @user_route.post("/get")
-async def get_user(request: GetUserRequest,
-                   token: str = Depends(jwt_bearer)) -> User:
+async def get_user(
+    request: GetUserRequest, token: str = Depends(jwt_bearer)
+) -> User:
     hana_token = jwt_bearer.client_manager.get_token_data(token)
-    return mq_connector.read_user(access_token=hana_token,
-                                  auth_user=hana_token.sub,
-                                  **dict(request))
+    return mq_connector.read_user(
+        access_token=hana_token, auth_user=hana_token.sub, **dict(request)
+    )
 
 
 @user_route.post("/update")
-async def update_user(request: UpdateUserRequest,
-                      token: str = Depends(jwt_bearer)) -> User:
-    return mq_connector.update_user(access_token=token,
-                                    **dict(request))
+async def update_user(
+    request: UpdateUserRequest, token: str = Depends(jwt_bearer)
+) -> User:
+    return mq_connector.update_user(access_token=token, **dict(request))
