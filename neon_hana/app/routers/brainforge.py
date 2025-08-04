@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends
 from neon_hana.app.dependencies import jwt_bearer, mq_connector
 
 from neon_data_models.models.api.http.brainforge import LLMGetModelsHttpResponse, LLMGetPersonasHttpRequest, \
-    LLMGetPersonasHttpResponse, LLMGetInferenceHttpRequest
+    LLMGetPersonasHttpResponse, LLMGetInferenceHttpRequest, OpenAiCompletionRequest, OpenAiCompletionResponse
 from neon_data_models.models.api.llm import LLMResponse
 from neon_data_models.enum import AccessRoles
 
@@ -64,4 +64,13 @@ async def bf_get_inference(request: LLMGetInferenceHttpRequest,
     return mq_connector.get_brainforge_model_inference(request, user_id)
 
 
-# TODO: OpenAI-compatible inference endpoint
+# OpenAI-compatible endpoints
+@bf_route.post("/chat/completions")
+async def openai_chat_completions(request: OpenAiCompletionRequest,
+                                  token: str = Depends(jwt_bearer)) -> OpenAiCompletionResponse:
+    _validate_permissions(token)
+    user_id = jwt_bearer.client_manager.get_token_data(token).sub
+    llm_request = request.to_llm_inference_http_request()
+    llm_response = mq_connector.get_brainforge_model_inference(llm_request, user_id)
+    return OpenAiCompletionResponse.from_llm_response(llm_response, request)
+
