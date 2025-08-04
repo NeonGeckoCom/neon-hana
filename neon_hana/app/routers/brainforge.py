@@ -24,7 +24,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from neon_hana.app.dependencies import jwt_bearer, mq_connector
 
 from neon_data_models.models.api.http.brainforge import LLMGetModelsHttpResponse, LLMGetPersonasHttpRequest, \
@@ -65,9 +65,17 @@ async def bf_get_inference(request: LLMGetInferenceHttpRequest,
 
 
 # OpenAI-compatible endpoints
-@bf_route.post("/chat/completions")
-async def openai_chat_completions(request: OpenAiCompletionRequest,
+@bf_route.post("/openai/chat/completions")
+async def openai_chat_completions(raw_request: Request,
                                   token: str = Depends(jwt_bearer)) -> OpenAiCompletionResponse:
+    # Manually parse the raw request as FastAPI does not handle byte-encoding
+    raw_request = await raw_request.body()
+    try:
+        import json
+        raw_request = json.loads(raw_request)
+        request = OpenAiCompletionRequest(**raw_request)
+    except Exception as e:
+        print(f"Failed to parse request: {e}")
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
     llm_request = request.to_llm_inference_http_request()
