@@ -27,38 +27,53 @@
 from fastapi import APIRouter, Depends, Request
 from neon_hana.app.dependencies import jwt_bearer, mq_connector
 
-from neon_data_models.models.api.http.brainforge import LLMGetModelsHttpResponse, LLMGetPersonasHttpRequest, \
-    LLMGetPersonasHttpResponse, LLMGetInferenceHttpRequest, OpenAiCompletionRequest, OpenAiCompletionResponse
+from neon_data_models.models.api.http.brainforge import (
+    LLMGetModelsHttpResponse,
+    LLMGetPersonasHttpRequest,
+    LLMGetPersonasHttpResponse,
+    LLMGetInferenceHttpRequest,
+    OpenAiCompletionRequest,
+    OpenAiCompletionResponse,
+)
 from neon_data_models.models.api.llm import LLMResponse
 from neon_data_models.enum import AccessRoles
 
 
-bf_route = APIRouter(prefix="/brainforge", tags=["llm"],
-                     dependencies=[Depends(jwt_bearer)])
+bf_route = APIRouter(
+    prefix="/brainforge", tags=["llm"], dependencies=[Depends(jwt_bearer)]
+)
+
 
 def _validate_permissions(token: str):
     permissions = jwt_bearer.client_manager.get_token_permissions(token)
     if permissions.llm < AccessRoles.GUEST:
-            raise PermissionError("Insufficient permissions to access LLM service")
+        raise PermissionError("Insufficient permissions to access LLM service")
+
 
 @bf_route.post("/get_models")
-async def bf_get_models(token: str = Depends(jwt_bearer)) -> LLMGetModelsHttpResponse:
+async def bf_get_models(
+    token: str = Depends(jwt_bearer),
+) -> LLMGetModelsHttpResponse:
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
     return mq_connector.get_brainforge_models(user_id)
 
 
 @bf_route.post("/get_personas")
-async def bf_get_personas(request: LLMGetPersonasHttpRequest,
-                          token: str = Depends(jwt_bearer)) -> LLMGetPersonasHttpResponse:
+async def bf_get_personas(
+    request: LLMGetPersonasHttpRequest, token: str = Depends(jwt_bearer)
+) -> LLMGetPersonasHttpResponse:
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
-    return mq_connector.get_brainforge_model_personas(request.model_id, user_id)
+    return mq_connector.get_brainforge_model_personas(
+        request.model_id, user_id
+    )
 
 
 @bf_route.post("/get_inference")
-async def bf_get_inference(request: LLMGetInferenceHttpRequest,
-                           token: str = Depends(jwt_bearer)) -> LLMResponse:
+async def bf_get_inference(
+    request: LLMGetInferenceHttpRequest, token: str = Depends(jwt_bearer)
+) -> LLMResponse:
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
     return mq_connector.get_brainforge_model_inference(request, user_id)
@@ -66,12 +81,16 @@ async def bf_get_inference(request: LLMGetInferenceHttpRequest,
 
 # OpenAI-compatible endpoints
 @bf_route.post("/openai/chat/completions")
-async def openai_chat_completions(raw_request: Request,
-                                  token: str = Depends(jwt_bearer)) -> OpenAiCompletionResponse:
+async def openai_chat_completions(
+    _completion_request: OpenAiCompletionRequest,
+    raw_request: Request,
+    token: str = Depends(jwt_bearer),
+) -> OpenAiCompletionResponse:
     # Manually parse the raw request as FastAPI does not handle byte-encoding
     raw_request = await raw_request.body()
     try:
         import json
+
         raw_request = json.loads(raw_request)
         request = OpenAiCompletionRequest(**raw_request)
     except Exception as e:
@@ -79,6 +98,7 @@ async def openai_chat_completions(raw_request: Request,
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
     llm_request = request.to_llm_inference_http_request()
-    llm_response = mq_connector.get_brainforge_model_inference(llm_request, user_id)
+    llm_response = mq_connector.get_brainforge_model_inference(
+        llm_request, user_id
+    )
     return OpenAiCompletionResponse.from_llm_response(llm_response, request)
-
