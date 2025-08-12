@@ -30,7 +30,10 @@ from time import time
 from typing import Optional, Dict, Any, List, Tuple, Union
 from uuid import uuid4
 from fastapi import HTTPException
-
+from neon_data_models.models.api.llm import LLMResponse
+from neon_data_models.models.api.mq.brainforge import LLMGetPersonasResponse
+from neon_data_models.models.api.http.brainforge import LLMGetModelsHttpResponse, LLMGetPersonasHttpResponse, \
+    LLMGetInferenceHttpRequest
 from neon_data_models.models.api import CreateUserRequest, ReadUserRequest, \
     UpdateUserRequest, DeleteUserRequest
 from neon_data_models.models.api.jwt import HanaToken
@@ -314,3 +317,35 @@ class MQServiceManager:
             response['context']['session']
         sentence = response['data']['responses'][lang_code]['sentence']
         return {"answer": sentence, "lang_code": lang_code}
+
+    def get_brainforge_models(self, user_id: str) -> LLMGetModelsHttpResponse:
+        request_data = {"user_id": user_id}
+        response = send_mq_request("/brainforge", request_data,
+                                   "brainforge_get_models",
+                                   timeout=self.mq_default_timeout)
+        return LLMGetModelsHttpResponse(**response)
+
+    def get_brainforge_model_personas(self, model_id: str, user_id: str) -> LLMGetPersonasHttpResponse:
+        request_data = {"user_id": user_id,
+                        "model_id": model_id}
+        response = send_mq_request("/brainforge", request_data,
+                                   "brainforge_get_personas",
+                                   timeout=self.mq_default_timeout)
+        response = LLMGetPersonasResponse(**response)
+        if response.model is None:
+            raise HTTPException(status_code=400,
+                                detail=f"Requested model ({model_id}) is not "
+                                       f"available.")
+        return LLMGetPersonasHttpResponse(personas=response.personas)
+
+    def get_brainforge_model_inference(self, request: LLMGetInferenceHttpRequest,
+                                       user_id: str) -> LLMResponse:
+
+        request.model = request.model or \
+            f"{request.llm_name}@{request.llm_revision}"
+        request_data = request.model_dump()
+        request_data["user_id"] = user_id
+        response = send_mq_request("/brainforge", request_data,
+                                   "brainforge_get_inference",
+                                   timeout=self.mq_default_timeout)
+        return LLMResponse(**response)
