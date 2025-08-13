@@ -654,7 +654,14 @@ class MQServiceManager:
         if not response:
             raise APIError(status_code=500,
                            detail="No response received from skills API")
-        return response.get('data', {})
+        api_methods = []
+        for skill, methods in response.get('data', {}).items():
+            for meth_name, spec in methods.items():
+                spec['skill_id'] = skill
+                spec['api_method'] = meth_name
+                api_methods.append(spec)
+
+        return api_methods
 
     def call_skills_api(self, skill_id: str, api_method: str, args: list, kwargs: dict):
         request_data = {"msg_type": "neon.skill_api.call",
@@ -665,7 +672,7 @@ class MQServiceManager:
                                     "ident": f"{self.mq_cliend_id}{time()}"}}
         response = send_mq_request("/neon_chat_api", request_data,
                                    "neon_chat_api_request",
-                                   timeout=self.mq_default_timeout)
+                                   timeout=30)
         if not response:
             raise APIError(status_code=500,
                            detail="No response received from skills API")
