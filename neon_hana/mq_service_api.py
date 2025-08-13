@@ -643,6 +643,35 @@ class MQServiceManager:
         sentence = response['data']['responses'][lang_code]['sentence']
         return {"answer": sentence, "lang_code": lang_code}
 
+    def get_skills_api(self):
+        request_data = {"msg_type": "neon.skill_api.get",
+                        "data": {},
+                        "context": {"source": "hana",
+                                    "ident": f"{self.mq_cliend_id}{time()}"}}
+        response = send_mq_request("/neon_chat_api", request_data,
+                                   "neon_chat_api_request",
+                                   timeout=self.mq_default_timeout)
+        if not response:
+            raise APIError(status_code=500,
+                           detail="No response received from skills API")
+        return response.get('data', {})
+
+    def call_skills_api(self, skill_id: str, api_method: str, args: list, kwargs: dict):
+        request_data = {"msg_type": "neon.skill_api.call",
+                        "data": {"args": args,
+                                 "kwargs": kwargs,
+                                 "msg_type": f"{skill_id}.{api_method}"},
+                        "context": {"source": "hana",
+                                    "ident": f"{self.mq_cliend_id}{time()}"}}
+        response = send_mq_request("/neon_chat_api", request_data,
+                                   "neon_chat_api_request",
+                                   timeout=self.mq_default_timeout)
+        if not response:
+            raise APIError(status_code=500,
+                           detail="No response received from skills API")
+        return response.get('data', {})
+
+
     def get_brainforge_models(self, user_id: str) -> LLMGetModelsHttpResponse:
         request_data = {"user_id": user_id}
         response = send_mq_request("/brainforge", request_data,
