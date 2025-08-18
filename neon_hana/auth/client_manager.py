@@ -41,7 +41,7 @@ from token_throttler import TokenThrottler, TokenBucket
 from token_throttler.storage import RuntimeStorage
 
 from neon_data_models.models.api.jwt import HanaToken
-from neon_hana.mq_service_api import AsyncMQServiceManager
+from neon_hana.mq_service_api import AsyncMqServiceManager
 from neon_data_models.models.user import (User, NeonUserConfig,
                                           PermissionsConfig)
 from neon_data_models.enum import AccessRoles
@@ -58,7 +58,7 @@ _DEFAULT_USER_PERMISSIONS = PermissionsConfig(klat=AccessRoles.USER,
 
 class ClientManager:
     def __init__(self, config: dict,
-                 mq_connector: Optional[AsyncMQServiceManager] = None):
+                 mq_connector: Optional[AsyncMqServiceManager] = None):
         self.rate_limiter = TokenThrottler(cost=1, storage=RuntimeStorage())
 
         # Keep a dict of `client_id` to auth tokens that have authenticated to
