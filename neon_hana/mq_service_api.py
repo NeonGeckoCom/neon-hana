@@ -69,7 +69,6 @@ class AsyncMqServiceManager:
         to avoid blocking the event loop.
         """
         import asyncio
-        timeout = timeout or self.mq_default_timeout
         loop = asyncio.get_event_loop()
         
         return await loop.run_in_executor(
