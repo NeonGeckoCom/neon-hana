@@ -25,6 +25,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import jwt
+import asyncio
 
 from asyncio import get_event_loop
 from uuid import uuid4
@@ -82,6 +83,38 @@ class ClientManager:
         # If authentication is explicitly disabled, don't try to query the
         # users service
         self._mq_connector = None if self._disable_auth else mq_connector
+
+    def _run_async(self, coro):
+        """
+        Helper method to run async code from sync methods.
+        Handles the case where an event loop is already running.
+        """
+        try:
+            # Check if there's a running event loop
+            asyncio.get_running_loop()
+            # If we reach here, there's a running loop - use thread executor
+            import concurrent.futures
+            
+            def run_in_new_loop():
+                new_loop = asyncio.new_event_loop()
+                try:
+                    asyncio.set_event_loop(new_loop)
+                    return new_loop.run_until_complete(coro)
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_new_loop)
+                return future.result()
+                
+        except RuntimeError:
+            # No running event loop, we can safely use the existing approach
+            try:
+                loop = get_event_loop()
+                return loop.run_until_complete(coro)
+            except RuntimeError:
+                # No event loop exists at all, create one
+                return asyncio.run(coro)
 
     @property
     def authorized_clients(self) -> Dict[str, AuthenticationResponse]:
@@ -199,7 +232,7 @@ class ClientManager:
         new_user = User(username=username, password_hash=password,
                         neon=user_config, permissions=_DEFAULT_USER_PERMISSIONS)
         if self._mq_connector:
-            return get_event_loop().run_until_complete(self._mq_connector.create_user(new_user))
+            return self._run_async(self._mq_connector.create_user(new_user))
         else:
             LOG.debug("No User Database connected. Return valid registration.")
             return new_user
@@ -243,7 +276,7 @@ class ClientManager:
         #                 permissions=_DEFAULT_USER_PERMISSIONS)
         #     user.permissions.node = AccessRoles.USER
         else:
-            user = get_event_loop().run_until_complete(self._mq_connector.read_user(username, password))
+            user = self._run_async(self._mq_connector.read_user(username, password))
 
         create_time = round(time())
         encode_data = {"client_id": client_id,
@@ -309,7 +342,7 @@ class ClientManager:
         access, refresh, tokens = self._create_tokens(**encode_data)
         username = refresh_data.sub
         if self._mq_connector:
-            user = get_event_loop().run_until_complete(self._mq_connector.read_user(username=refresh_data.sub,
+            user = self._run_async(self._mq_connector.read_user(username=refresh_data.sub,
                                                 access_token=token_data))
             if not user.password_hash:
                 # This should not be possible, but don't let an error in the
@@ -339,7 +372,7 @@ class ClientManager:
                 new_token.creation_timestamp = token.creation_timestamp
                 user.tokens.remove(token)
         user.tokens.append(new_token)
-        get_event_loop().run_until_complete(self._mq_connector.update_user(user))
+        self._run_async(self._mq_connector.update_user(user))
 
     def get_client_id(self, token: str) -> str:
         """
