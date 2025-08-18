@@ -28,5 +28,5 @@ import unittest
 
 
 class TestMqServiceApi(unittest.TestCase):
-    from neon_hana.mq_service_api import AsyncMQServiceManager
+    from neon_hana.mq_service_api import AsyncMqServiceManager
     # TODO
