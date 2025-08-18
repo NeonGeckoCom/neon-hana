@@ -26,6 +26,7 @@
 
 import jwt
 
+from asyncio import run
 from uuid import uuid4
 from datetime import datetime
 from threading import Lock
@@ -198,7 +199,7 @@ class ClientManager:
         new_user = User(username=username, password_hash=password,
                         neon=user_config, permissions=_DEFAULT_USER_PERMISSIONS)
         if self._mq_connector:
-            return self._mq_connector.create_user(new_user)
+            return run(self._mq_connector.create_user(new_user))
         else:
             LOG.debug("No User Database connected. Return valid registration.")
             return new_user
@@ -242,7 +243,7 @@ class ClientManager:
         #                 permissions=_DEFAULT_USER_PERMISSIONS)
         #     user.permissions.node = AccessRoles.USER
         else:
-            user = self._mq_connector.read_user(username, password)
+            user = run(self._mq_connector.read_user(username, password))
 
         create_time = round(time())
         encode_data = {"client_id": client_id,
@@ -308,8 +309,8 @@ class ClientManager:
         access, refresh, tokens = self._create_tokens(**encode_data)
         username = refresh_data.sub
         if self._mq_connector:
-            user = self._mq_connector.read_user(username=refresh_data.sub,
-                                                access_token=token_data)
+            user = run(self._mq_connector.read_user(username=refresh_data.sub,
+                                                access_token=token_data))
             if not user.password_hash:
                 # This should not be possible, but don't let an error in the
                 # users service allow for injecting a new valid token to the db
@@ -338,7 +339,7 @@ class ClientManager:
                 new_token.creation_timestamp = token.creation_timestamp
                 user.tokens.remove(token)
         user.tokens.append(new_token)
-        self._mq_connector.update_user(user)
+        run(self._mq_connector.update_user(user))
 
     def get_client_id(self, token: str) -> str:
         """
