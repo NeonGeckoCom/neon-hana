@@ -53,7 +53,7 @@ async def get_response(skill_request: SkillRequest,
     return await mq_connector.get_response(**dict(skill_request))
 
 
-@assist_route.post("/list_api")
+@assist_route.get("/list_api")
 async def list_api() -> NeonHttpListSkillApiResponse:
     return await mq_connector.get_skills_api()
 
