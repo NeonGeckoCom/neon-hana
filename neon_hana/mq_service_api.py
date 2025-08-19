@@ -372,7 +372,7 @@ class AsyncMqServiceManager:
                         "data": {},
                         "context": {"source": "hana",
                                     "ident": f"{self.mq_client_id}{time()}"}}
-        response = send_mq_request("/neon_chat_api", request_data,
+        response = await self._send_mq_request_async("/neon_chat_api", request_data,
                                    "neon_chat_api_request",
                                    timeout=self.mq_default_timeout)
         if not response:
@@ -394,7 +394,7 @@ class AsyncMqServiceManager:
                                  "msg_type": f"{skill_id}.{api_method}"},
                         "context": {"source": "hana",
                                     "ident": f"{self.mq_client_id}{time()}"}}
-        response = send_mq_request("/neon_chat_api", request_data,
+        response = await self._send_mq_request_async("/neon_chat_api", request_data,
                                    "neon_chat_api_request",
                                    timeout=30)
         if not response:
