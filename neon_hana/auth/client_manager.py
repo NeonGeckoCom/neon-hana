@@ -25,7 +25,9 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import jwt
+import asyncio
 
+from asyncio import get_event_loop
 from uuid import uuid4
 from datetime import datetime
 from threading import Lock
@@ -41,7 +43,7 @@ from token_throttler import TokenThrottler, TokenBucket
 from token_throttler.storage import RuntimeStorage
 
 from neon_data_models.models.api.jwt import HanaToken
-from neon_hana.mq_service_api import MQServiceManager
+from neon_hana.mq_service_api import AsyncMqServiceManager
 from neon_data_models.models.user import (User, NeonUserConfig,
                                           PermissionsConfig)
 from neon_data_models.enum import AccessRoles
@@ -58,7 +60,7 @@ _DEFAULT_USER_PERMISSIONS = PermissionsConfig(klat=AccessRoles.USER,
 
 class ClientManager:
     def __init__(self, config: dict,
-                 mq_connector: Optional[MQServiceManager] = None):
+                 mq_connector: Optional[AsyncMqServiceManager] = None):
         self.rate_limiter = TokenThrottler(cost=1, storage=RuntimeStorage())
 
         # Keep a dict of `client_id` to auth tokens that have authenticated to
@@ -81,6 +83,38 @@ class ClientManager:
         # If authentication is explicitly disabled, don't try to query the
         # users service
         self._mq_connector = None if self._disable_auth else mq_connector
+
+    def _run_async(self, coro):
+        """
+        Helper method to run async code from sync methods.
+        Handles the case where an event loop is already running.
+        """
+        try:
+            # Check if there's a running event loop
+            asyncio.get_running_loop()
+            # If we reach here, there's a running loop - use thread executor
+            import concurrent.futures
+            
+            def run_in_new_loop():
+                new_loop = asyncio.new_event_loop()
+                try:
+                    asyncio.set_event_loop(new_loop)
+                    return new_loop.run_until_complete(coro)
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_new_loop)
+                return future.result()
+                
+        except RuntimeError:
+            # No running event loop, we can safely use the existing approach
+            try:
+                loop = get_event_loop()
+                return loop.run_until_complete(coro)
+            except RuntimeError:
+                # No event loop exists at all, create one
+                return asyncio.run(coro)
 
     @property
     def authorized_clients(self) -> Dict[str, AuthenticationResponse]:
@@ -198,7 +232,7 @@ class ClientManager:
         new_user = User(username=username, password_hash=password,
                         neon=user_config, permissions=_DEFAULT_USER_PERMISSIONS)
         if self._mq_connector:
-            return self._mq_connector.create_user(new_user)
+            return self._run_async(self._mq_connector.create_user(new_user))
         else:
             LOG.debug("No User Database connected. Return valid registration.")
             return new_user
@@ -242,7 +276,7 @@ class ClientManager:
         #                 permissions=_DEFAULT_USER_PERMISSIONS)
         #     user.permissions.node = AccessRoles.USER
         else:
-            user = self._mq_connector.read_user(username, password)
+            user = self._run_async(self._mq_connector.read_user(username, password))
 
         create_time = round(time())
         encode_data = {"client_id": client_id,
@@ -308,8 +342,8 @@ class ClientManager:
         access, refresh, tokens = self._create_tokens(**encode_data)
         username = refresh_data.sub
         if self._mq_connector:
-            user = self._mq_connector.read_user(username=refresh_data.sub,
-                                                access_token=token_data)
+            user = self._run_async(self._mq_connector.read_user(username=refresh_data.sub,
+                                                access_token=token_data))
             if not user.password_hash:
                 # This should not be possible, but don't let an error in the
                 # users service allow for injecting a new valid token to the db
@@ -338,7 +372,7 @@ class ClientManager:
                 new_token.creation_timestamp = token.creation_timestamp
                 user.tokens.remove(token)
         user.tokens.append(new_token)
-        self._mq_connector.update_user(user)
+        self._run_async(self._mq_connector.update_user(user))
 
     def get_client_id(self, token: str) -> str:
         """

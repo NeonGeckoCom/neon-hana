@@ -35,12 +35,12 @@ assist_route = APIRouter(prefix="/neon", tags=["assist"],
 
 @assist_route.post("/get_stt")
 async def get_stt(audio_in: STTRequest) -> STTResponse:
-    return mq_connector.get_stt(**dict(audio_in))
+    return await mq_connector.get_stt(**dict(audio_in))
 
 
 @assist_route.post("/get_tts")
 async def get_tts(request: TTSRequest) -> TTSResponse:
-    return mq_connector.get_tts(**dict(request))
+    return await mq_connector.get_tts(**dict(request))
 
 
 @assist_route.post("/get_response")
@@ -49,4 +49,4 @@ async def get_response(skill_request: SkillRequest,
     if not skill_request.node_data.networking.public_ip:
         host = request.client.host if request.client else ""
         skill_request.node_data.networking.public_ip = host
-    return mq_connector.get_response(**dict(skill_request))
+    return await mq_connector.get_response(**dict(skill_request))

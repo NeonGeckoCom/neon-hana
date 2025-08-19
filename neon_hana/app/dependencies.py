@@ -26,10 +26,10 @@
 
 from ovos_config.config import Configuration
 
-from neon_hana.mq_service_api import MQServiceManager
+from neon_hana.mq_service_api import AsyncMqServiceManager
 from neon_hana.auth.client_manager import ClientManager, UserTokenAuth
 
 config = Configuration().get("hana") or dict()
-mq_connector = MQServiceManager(config)
+mq_connector = AsyncMqServiceManager(config)
 client_manager = ClientManager(config, mq_connector)
 jwt_bearer = UserTokenAuth(client_manager)

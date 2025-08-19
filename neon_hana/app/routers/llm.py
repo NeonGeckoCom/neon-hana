@@ -35,24 +35,24 @@ llm_route = APIRouter(prefix="/llm", tags=["backend"],
 
 @llm_route.post("/chatgpt")
 async def llm_ask_chatgpt(query: LLMRequest) -> LLMResponse:
-    return mq_connector.query_llm("chat_gpt", **dict(query))
+    return await mq_connector.query_llm("chat_gpt", **dict(query))
 
 
 @llm_route.post("/fastchat")
 async def llm_ask_fastchat(query: LLMRequest) -> LLMResponse:
-    return mq_connector.query_llm("fastchat", **dict(query))
+    return await mq_connector.query_llm("fastchat", **dict(query))
 
 
 @llm_route.post("/gemini")
 async def llm_ask_gemini(query: LLMRequest) -> LLMResponse:
-    return mq_connector.query_llm("gemini", **dict(query))
+    return await mq_connector.query_llm("gemini", **dict(query))
 
 
 @llm_route.post("/claude")
 async def llm_ask_claude(query: LLMRequest) -> LLMResponse:
-    return mq_connector.query_llm("claude", **dict(query))
+    return await mq_connector.query_llm("claude", **dict(query))
 
 
 @llm_route.post("/palm")
 async def llm_ask_palm(query: LLMRequest) -> LLMResponse:
-    return mq_connector.query_llm("palm2", **dict(query))
+    return await mq_connector.query_llm("palm2", **dict(query))

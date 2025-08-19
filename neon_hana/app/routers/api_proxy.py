@@ -38,32 +38,32 @@ proxy_route = APIRouter(prefix="/proxy", tags=["backend"],
 async def api_proxy_weather(query: WeatherAPIRequest) -> WeatherAPIOnecallResponse:
     query = dict(query)
     query["lang"] = query.pop("lang_code")
-    return mq_connector.query_api_proxy("open_weather_map", query)
+    return await mq_connector.query_api_proxy("open_weather_map", query)
 
 
 @proxy_route.post("/stock/symbol")
 async def api_proxy_stock_symbol(query: StockAPISymbolRequest) -> StockAPISearchResponse:
-    return mq_connector.query_api_proxy("alpha_vantage",
+    return await mq_connector.query_api_proxy("alpha_vantage",
                                         {**dict(query),
                                          **{"api": "symbol"}})
 
 
 @proxy_route.post("/stock/quote")
 async def api_proxy_stock_quote(query: StockAPIQuoteRequest) -> StockAPIQuoteResponse:
-    return mq_connector.query_api_proxy("alpha_vantage",
+    return await mq_connector.query_api_proxy("alpha_vantage",
                                         {**dict(query), **{"api": "quote"}})
 
 
 @proxy_route.post("/geolocation/geocode")
 async def api_proxy_geolocation(query: GeoAPIRequest) -> GeoAPIGeocodeResponse:
-    return mq_connector.query_api_proxy("map_maker", dict(query))
+    return await mq_connector.query_api_proxy("map_maker", dict(query))
 
 
 @proxy_route.post("/geolocation/reverse")
 async def api_proxy_geolocation(query: GeoAPIReverseRequest) -> GeoAPIReverseResponse:
-    return mq_connector.query_api_proxy("map_maker", dict(query))
+    return await mq_connector.query_api_proxy("map_maker", dict(query))
 
 
 @proxy_route.post("/wolframalpha")
 async def api_proxy_wolframalpha(query: WolframAlphaAPIRequest) -> WolframAlphaAPIResponse:
-    return mq_connector.query_api_proxy("wolfram_alpha", dict(query))
+    return await mq_connector.query_api_proxy("wolfram_alpha", dict(query))

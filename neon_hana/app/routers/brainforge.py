@@ -56,7 +56,7 @@ async def bf_get_models(
 ) -> LLMGetModelsHttpResponse:
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
-    return mq_connector.get_brainforge_models(user_id)
+    return await mq_connector.get_brainforge_models(user_id)
 
 
 @bf_route.post("/get_personas")
@@ -65,7 +65,7 @@ async def bf_get_personas(
 ) -> LLMGetPersonasHttpResponse:
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
-    return mq_connector.get_brainforge_model_personas(
+    return await mq_connector.get_brainforge_model_personas(
         request.model_id, user_id
     )
 
@@ -76,7 +76,7 @@ async def bf_get_inference(
 ) -> LLMResponse:
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
-    return mq_connector.get_brainforge_model_inference(request, user_id)
+    return await mq_connector.get_brainforge_model_inference(request, user_id)
 
 
 # OpenAI-compatible endpoints
@@ -98,7 +98,7 @@ async def openai_chat_completions(
     _validate_permissions(token)
     user_id = jwt_bearer.client_manager.get_token_data(token).sub
     llm_request = request.to_llm_inference_http_request()
-    llm_response = mq_connector.get_brainforge_model_inference(
+    llm_response = await mq_connector.get_brainforge_model_inference(
         llm_request, user_id
     )
     return OpenAiCompletionResponse.from_llm_response(llm_response, request)

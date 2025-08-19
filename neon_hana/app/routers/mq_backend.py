@@ -35,19 +35,19 @@ mq_route = APIRouter(tags=["backend"], dependencies=[Depends(jwt_bearer)])
 
 @mq_route.post("/email", dependencies=[Depends(jwt_bearer)])
 async def email_send(request: SendEmailRequest):
-    mq_connector.send_email(**dict(request))
+    await mq_connector.send_email(**dict(request))
 
 
 @mq_route.post("/metrics/upload", dependencies=[Depends(jwt_bearer)])
 async def upload_metric(metric: UploadMetricRequest):
-    mq_connector.upload_metric(**dict(metric))
+    await mq_connector.upload_metric(**dict(metric))
 
 
 @mq_route.post("/ccl/parse", dependencies=[Depends(jwt_bearer)])
 async def parse_nct_script(script: ParseScriptRequest) -> ScriptParserResponse:
-    return mq_connector.parse_ccl_script(**dict(script))
+    return await mq_connector.parse_ccl_script(**dict(script))
 
 
 @mq_route.post("/coupons", dependencies=[Depends(jwt_bearer)])
 async def get_coupons() -> CouponsResponse:
-    return mq_connector.get_coupons()
+    return await mq_connector.get_coupons()
