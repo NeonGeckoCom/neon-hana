@@ -50,15 +50,15 @@ async def get_response(skill_request: SkillRequest,
     if not skill_request.node_data.networking.public_ip:
         host = request.client.host if request.client else ""
         skill_request.node_data.networking.public_ip = host
-    return mq_connector.get_response(**dict(skill_request))
+    return await mq_connector.get_response(**dict(skill_request))
 
 
 @assist_route.post("/list_api")
 async def list_api() -> NeonHttpListSkillApiResponse:
-    return mq_connector.get_skills_api()
+    return await mq_connector.get_skills_api()
 
 
 @assist_route.post("/call_api")
 async def call_api(api_request: NeonHttpSkillApiRequest) -> NeonHttpSkillApiResponse:
-    return mq_connector.call_skills_api(**dict(api_request))
+    return await mq_connector.call_skills_api(**dict(api_request))
 
