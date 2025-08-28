@@ -367,6 +367,41 @@ class AsyncMqServiceManager:
                                    timeout=self.mq_default_timeout)
         return LLMResponse(**response)
 
+    async def get_skills_api(self):
+        request_data = {"msg_type": "neon.skill_api.get",
+                        "data": {},
+                        "context": {"source": "hana",
+                                    "ident": f"{self.mq_client_id}{time()}"}}
+        response = await self._send_mq_request_async("/neon_chat_api", request_data,
+                                   "neon_chat_api_request",
+                                   timeout=self.mq_default_timeout)
+        if not response:
+            raise APIError(status_code=500,
+                           detail="No response received from skills API")
+        api_methods = []
+        for skill, methods in response.get('data', {}).items():
+            for meth_name, spec in methods.items():
+                spec['skill_id'] = skill
+                spec['api_method'] = meth_name
+                api_methods.append(spec)
+
+        return api_methods
+
+    async def call_skills_api(self, skill_id: str, api_method: str, args: list, kwargs: dict):
+        request_data = {"msg_type": "neon.skill_api.call",
+                        "data": {"args": args,
+                                 "kwargs": kwargs,
+                                 "msg_type": f"{skill_id}.{api_method}"},
+                        "context": {"source": "hana",
+                                    "ident": f"{self.mq_client_id}{time()}"}}
+        response = await self._send_mq_request_async("/neon_chat_api", request_data,
+                                   "neon_chat_api_request",
+                                   timeout=30)
+        if not response:
+            raise APIError(status_code=500,
+                           detail="No response received from skills API")
+        return response.get('data', {})
+
 
 class MQServiceManager:
     def __init__(self, config: dict):

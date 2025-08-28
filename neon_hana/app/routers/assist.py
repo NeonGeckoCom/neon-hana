@@ -25,6 +25,7 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from fastapi import APIRouter, Depends, Request
+from neon_data_models.models.api.http.neon import NeonHttpListSkillApiResponse, NeonHttpSkillApiRequest, NeonHttpSkillApiResponse
 from neon_hana.schema.assist_requests import *
 from neon_hana.app.dependencies import jwt_bearer, mq_connector
 
@@ -50,3 +51,14 @@ async def get_response(skill_request: SkillRequest,
         host = request.client.host if request.client else ""
         skill_request.node_data.networking.public_ip = host
     return await mq_connector.get_response(**dict(skill_request))
+
+
+@assist_route.post("/list_api")  # POST for compat. with MCP applications
+async def list_api() -> NeonHttpListSkillApiResponse:
+    return await mq_connector.get_skills_api()
+
+
+@assist_route.post("/call_api")
+async def call_api(api_request: NeonHttpSkillApiRequest) -> NeonHttpSkillApiResponse:
+    return await mq_connector.call_skills_api(**dict(api_request))
+
