@@ -31,6 +31,7 @@ from time import time
 from typing import Optional, Dict, Any, List, Tuple, Union
 from uuid import uuid4
 from fastapi import HTTPException
+from pydantic import ValidationError
 from neon_data_models.models.api.llm import LLMResponse
 from neon_data_models.models.api.mq.brainforge import LLMGetPersonasResponse
 from neon_data_models.models.api.http.brainforge import LLMGetModelsHttpResponse, LLMGetPersonasHttpResponse, \
@@ -362,10 +363,16 @@ class AsyncMqServiceManager:
             f"{request.llm_name}@{request.llm_revision}"
         request_data = request.model_dump()
         request_data["user_id"] = user_id
+        # Timeout set arbitrarily high to allow for long LLM responses
         response = await self._send_mq_request_async("/brainforge", request_data,
                                    "brainforge_get_inference",
-                                   timeout=self.mq_default_timeout)
-        return LLMResponse(**response)
+                                   timeout=300)
+        try:
+            return LLMResponse(**response)
+        except ValidationError as e:
+            raise APIError(
+                    status_code=500,
+                    detail=f"Invalid response from Brainforge: {response}") from e
 
     async def get_skills_api(self):
         request_data = {"msg_type": "neon.skill_api.get",
