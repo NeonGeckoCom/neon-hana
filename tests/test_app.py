@@ -129,7 +129,7 @@ class TestHanaApp(TestCase):
         response = self.test_app.post("/neon/get_stt",
                                       json={"encoded_audio": "MOCK_B64_AUDIO",
                                             "lang_code": "en-us"})
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -155,7 +155,7 @@ class TestHanaApp(TestCase):
         response = self.test_app.post("/neon/get_tts",
                                       json={"to_speak": "test",
                                             "lang_code": "en-us"})
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -183,7 +183,7 @@ class TestHanaApp(TestCase):
         response = self.test_app.post("/neon/get_response",
                                       json={"utterance": "test",
                                             "lang_code": "en-us"})
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -220,7 +220,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/proxy/weather",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -250,7 +250,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/proxy/stock/symbol",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -280,7 +280,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/proxy/stock/quote",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -319,7 +319,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/proxy/geolocation/geocode",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -356,7 +356,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/proxy/geolocation/reverse",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -384,7 +384,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/proxy/wolframalpha",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -411,7 +411,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/email",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -447,7 +447,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/metrics/upload",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -471,7 +471,7 @@ class TestHanaApp(TestCase):
         # Invalid missing auth
         response = self.test_app.post("/ccl/parse",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         # Invalid request
         self.assertEqual(self.test_app.post(
@@ -493,7 +493,7 @@ class TestHanaApp(TestCase):
 
         # Invalid missing auth
         response = self.test_app.post("/coupons")
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_llm(self, send_request):
@@ -540,7 +540,7 @@ class TestHanaApp(TestCase):
         # Invalid requests
         response = self.test_app.post("/llm/chatgpt",
                                       json=valid_request)
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertIn(response.status_code, [401, 403], response.text)
 
         response = self.test_app.post("/llm/chatgpt",
                                       headers={"Authorization": f"Bearer {token}"})

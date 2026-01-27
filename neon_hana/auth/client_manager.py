@@ -440,7 +440,7 @@ class UserTokenAuth(HTTPBearer):
         self.client_manager = client_manager
 
     async def __call__(self, request: Request):
-        credentials: HTTPAuthorizationCredentials = \
+        credentials: Optional[HTTPAuthorizationCredentials] = \
             await HTTPBearer.__call__(self, request)
         if credentials:
             if not credentials.scheme == "Bearer":
