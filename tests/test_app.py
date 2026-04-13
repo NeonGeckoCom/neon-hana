@@ -568,4 +568,109 @@ class TestHanaApp(TestCase):
         for key, val in test_headers.items():
             self.assertEqual(response.json()[key.lower()], val, response.json())
 
+    def test_hub_identity_get(self):
+        # Public endpoint, no auth required
+        response = self.test_app.get("/hub/identity")
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertTrue(data["hub_id"], "hub_id should be non-empty")
+
+    def test_hub_identity_stable(self):
+        # hub_id must not change across calls
+        id1 = self.test_app.get("/hub/identity").json()["hub_id"]
+        id2 = self.test_app.get("/hub/identity").json()["hub_id"]
+        id3 = self.test_app.get("/hub/identity").json()["hub_id"]
+        self.assertEqual(id1, id2)
+        self.assertEqual(id2, id3)
+
+    @patch("neon_hana.app.routers.hub.update_mycroft_config")
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_hub_identity_update(self, send_request, mock_config_write):
+        token = self._get_tokens()["access_token"]
+        original = self.test_app.get("/hub/identity").json()
+
+        # Valid update
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "Kitchen Hub"},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertEqual(data["display_name"], "Kitchen Hub")
+        self.assertEqual(data["hub_id"], original["hub_id"])
+        mock_config_write.assert_called()
+
+        # Verify persistence in memory
+        data = self.test_app.get("/hub/identity").json()
+        self.assertEqual(data["display_name"], "Kitchen Hub")
+
+        # Whitespace is stripped from valid input
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "  Living Room Hub  "},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.json()["display_name"], "Living Room Hub")
+
+        # Boundary: 1-char name accepted
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "X"},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+
+        # Boundary: 128-char name accepted
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "x" * 128},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+
+        # Restore default to avoid test ordering issues
+        from neon_hana.app.dependencies import config
+        config.pop("hub_display_name", None)
+
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_hub_identity_update_auth_required(self, send_request):
+        # Missing auth
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "No Auth Hub"})
+        self.assertIn(response.status_code, [401, 403], response.text)
+
+    @patch("neon_hana.app.routers.hub.update_mycroft_config")
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_hub_identity_update_validation(self, send_request,
+                                            mock_config_write):
+        token = self._get_tokens()["access_token"]
+
+        # Empty display_name
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": ""},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
+
+        # Whitespace-only display_name
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "   "},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
+
+        # Too long display_name
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "x" * 129},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
+
+        # Missing body
+        response = self.test_app.post(
+            "/hub/identity",
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
+
+        # Config was never written for invalid requests
+        mock_config_write.assert_not_called()
+
 # TODO: Define node endpoint tests
