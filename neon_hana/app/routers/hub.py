@@ -24,14 +24,28 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import os
+from typing import Optional
+
+import yaml
 from fastapi import APIRouter, Depends
 from ovos_config.config import update_mycroft_config
 from ovos_utils.log import LOG
 
 from neon_hana.app.dependencies import config, jwt_bearer
 from neon_hana.hub_id import generate_hub_id
-from neon_hana.schema.hub_requests import HubIdentityResponse, UpdateHubIdentityRequest
+from neon_hana.schema.hub_requests import (
+    HubConfigResponse,
+    HubIdentityResponse,
+    LLMConfig,
+    STTConfig,
+    TTSConfig,
+    UpdateHubIdentityRequest,
+)
 from neon_hana.version import __version__
+
+_DEFAULT_TTS_MODULE = "neon-tts-plugin-coqui"
+_DEFAULT_STT_MODULE = "neon-stt-plugin-nemo"
 
 hub_route = APIRouter(prefix="/hub", tags=["hub"])
 
@@ -79,4 +93,62 @@ async def update_hub_identity(
         hub_id=_hub_id,
         display_name=request.display_name,
         version=__version__,
+    )
+
+
+def _read_neon_yaml() -> Optional[dict]:
+    """Read neon.yaml from the XDG config path.
+
+    Returns the parsed config dict, or None if the file is missing or
+    unreadable (e.g. HANA running outside a Hub deployment, permission
+    issues, or malformed YAML).
+    """
+    xdg_config = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    neon_yaml_path = os.path.join(xdg_config, "neon", "neon.yaml")
+    try:
+        with open(neon_yaml_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        LOG.info("neon.yaml not found at %s", neon_yaml_path)
+        return None
+    except (PermissionError, IsADirectoryError, yaml.YAMLError) as e:
+        LOG.warning("Failed to read neon.yaml at %s: %s", neon_yaml_path, e)
+        return None
+    if not isinstance(data, dict):
+        LOG.warning("neon.yaml at %s is not a mapping (got %s); ignoring",
+                     neon_yaml_path, type(data).__name__)
+        return None
+    return data
+
+
+@hub_route.get("/config")
+async def get_hub_config() -> HubConfigResponse:
+    """
+    Get the active configuration of this Hub.
+
+    Returns the currently configured TTS, STT, and LLM engines.
+    TTS/STT are read from neon.yaml on each request so that
+    config changes are reflected without restarting HANA.
+    If the file is not present (non-Hub deployment), those
+    fields are null. If present but the keys are not set,
+    known defaults are returned.
+
+    This endpoint is public (no authentication required) so that
+    Nodes can display Hub configuration during discovery.
+    """
+    neon_config = _read_neon_yaml()
+
+    if neon_config is None:
+        tts = None
+        stt = None
+    else:
+        tts_module = (neon_config.get("tts") or {}).get("module", _DEFAULT_TTS_MODULE)
+        stt_module = (neon_config.get("stt") or {}).get("module", _DEFAULT_STT_MODULE)
+        tts = TTSConfig(module=tts_module)
+        stt = STTConfig(module=stt_module)
+
+    return HubConfigResponse(
+        tts=tts,
+        stt=stt,
+        llm=LLMConfig(name="Neon Classic"),
     )

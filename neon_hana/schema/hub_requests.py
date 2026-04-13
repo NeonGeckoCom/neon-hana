@@ -24,7 +24,53 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator
+
+
+class TTSConfig(BaseModel):
+    """TTS plugin configuration."""
+
+    module: str = Field(description="Active TTS plugin module name")
+
+
+class STTConfig(BaseModel):
+    """STT plugin configuration."""
+
+    module: str = Field(description="Active STT plugin module name")
+
+
+class LLMConfig(BaseModel):
+    """LLM configuration."""
+
+    name: str = Field(description="Active LLM engine name")
+
+
+class HubConfigResponse(BaseModel):
+    """Response model for GET /hub/config."""
+
+    tts: Optional[TTSConfig] = Field(
+        default=None,
+        description="Active TTS configuration, or null if unavailable",
+    )
+    stt: Optional[STTConfig] = Field(
+        default=None,
+        description="Active STT configuration, or null if unavailable",
+    )
+    llm: LLMConfig = Field(description="Active LLM configuration")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "tts": {"module": "neon-tts-plugin-coqui"},
+                    "stt": {"module": "neon-stt-plugin-nemo"},
+                    "llm": {"name": "Neon Classic"},
+                }
+            ]
+        }
+    }
 
 
 class HubIdentityResponse(BaseModel):
