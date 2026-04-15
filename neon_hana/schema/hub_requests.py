@@ -26,6 +26,7 @@
 
 from typing import Optional
 
+from neon_data_models.models.api.llm import LLMPersona
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -41,12 +42,6 @@ class STTConfig(BaseModel):
     module: str = Field(description="Active STT plugin module name")
 
 
-class LLMConfig(BaseModel):
-    """LLM configuration."""
-
-    name: str = Field(description="Active LLM engine name")
-
-
 class HubConfigResponse(BaseModel):
     """Response model for GET /hub/config."""
 
@@ -58,7 +53,7 @@ class HubConfigResponse(BaseModel):
         default=None,
         description="Active STT configuration, or null if unavailable",
     )
-    llm: LLMConfig = Field(description="Active LLM configuration")
+    llm: LLMPersona = Field(description="Active LLM persona")
 
     model_config = {
         "json_schema_extra": {
@@ -66,7 +61,11 @@ class HubConfigResponse(BaseModel):
                 {
                     "tts": {"module": "neon-tts-plugin-coqui"},
                     "stt": {"module": "neon-stt-plugin-nemo"},
-                    "llm": {"name": "Neon Classic"},
+                    "llm": {
+                        "persona_name": "Neon Classic",
+                        "description": "OVOS parser-based assistant (no LLM)",
+                        "enabled": True,
+                    },
                 }
             ]
         }

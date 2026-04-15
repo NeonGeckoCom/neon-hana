@@ -683,7 +683,7 @@ class TestHanaApp(TestCase):
         data = response.json()
         self.assertEqual(data["tts"]["module"], "ovos-tts-plugin-mimic")
         self.assertEqual(data["stt"]["module"], "ovos-stt-plugin-vosk")
-        self.assertEqual(data["llm"]["name"], "Neon Classic")
+        self.assertEqual(data["llm"]["persona_name"], "Neon Classic")
 
     @patch("neon_hana.app.routers.hub._read_neon_yaml")
     def test_hub_config_defaults(self, mock_read):
@@ -704,7 +704,7 @@ class TestHanaApp(TestCase):
         data = response.json()
         self.assertIsNone(data["tts"])
         self.assertIsNone(data["stt"])
-        self.assertEqual(data["llm"]["name"], "Neon Classic")
+        self.assertEqual(data["llm"]["persona_name"], "Neon Classic")
 
     @patch("neon_hana.app.routers.hub._read_neon_yaml")
     def test_hub_config_key_without_module(self, mock_read):

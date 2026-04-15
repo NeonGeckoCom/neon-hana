@@ -29,6 +29,7 @@ from typing import Optional
 
 import yaml
 from fastapi import APIRouter, Depends
+from neon_data_models.models.api.llm import LLMPersona
 from ovos_config.config import update_mycroft_config
 from ovos_utils.log import LOG
 
@@ -37,7 +38,6 @@ from neon_hana.hub_id import generate_hub_id
 from neon_hana.schema.hub_requests import (
     HubConfigResponse,
     HubIdentityResponse,
-    LLMConfig,
     STTConfig,
     TTSConfig,
     UpdateHubIdentityRequest,
@@ -136,6 +136,11 @@ async def get_hub_config() -> HubConfigResponse:
     This endpoint is public (no authentication required) so that
     Nodes can display Hub configuration during discovery.
     """
+    # TODO: This relies on HANA sharing a local FS with the core services
+    # (true for a standard Hub deployment, not for split/cloud deployments).
+    # When opm.tts.query / opm.stt.query are reliably handled by ovos-audio
+    # / neon-speech, fall back to messagebus queries via MQ for non-Hub
+    # deployments. See the related research note in the project tracker.
     neon_config = _read_neon_yaml()
 
     if neon_config is None:
@@ -150,5 +155,8 @@ async def get_hub_config() -> HubConfigResponse:
     return HubConfigResponse(
         tts=tts,
         stt=stt,
-        llm=LLMConfig(name="Neon Classic"),
+        llm=LLMPersona(
+            name="Neon Classic",
+            description="OVOS parser-based assistant (no LLM)",
+        ),
     )
