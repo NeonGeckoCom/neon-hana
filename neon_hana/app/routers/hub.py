@@ -28,8 +28,10 @@ import os
 from typing import Optional
 
 import yaml
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from neon_data_models.enum import AccessRoles
 from neon_data_models.models.api.llm import LLMPersona
+from neon_data_models.models.user.database import PermissionsConfig
 from ovos_config.config import update_mycroft_config
 from ovos_utils.log import LOG
 
@@ -55,7 +57,10 @@ _hub_id = config.get("hub_id")
 if not _hub_id:
     _hub_id = generate_hub_id()
     LOG.info("Generated new hub_id: %s", _hub_id)
-    update_mycroft_config({"hana": {"hub_id": _hub_id}})
+    try:
+        update_mycroft_config({"hana": {"hub_id": _hub_id}})
+    except Exception as e:
+        LOG.error("Failed to persist hub_id to config: %s", e)
     config["hub_id"] = _hub_id
 
 
@@ -76,23 +81,37 @@ async def get_hub_identity() -> HubIdentityResponse:
     )
 
 
-@hub_route.post("/identity", dependencies=[Depends(jwt_bearer)])
+@hub_route.post("/identity")
 async def update_hub_identity(
     request: UpdateHubIdentityRequest,
+    token: str = Depends(jwt_bearer),
 ) -> HubIdentityResponse:
     """
     Update the display name of this Hub.
 
-    Requires authentication. The new display name is persisted to
-    the configuration file and survives container restarts.
+    Requires hub: ADMIN permission. The new display name is persisted
+    to the configuration file and survives container restarts.
     """
-    update_mycroft_config({"hana": {"hub_display_name": request.display_name}})
+    permissions = PermissionsConfig.from_roles(
+        jwt_bearer.client_manager.get_token_data(token).roles)
+    if permissions.hub < AccessRoles.ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Insufficient Hub management permission ({permissions.hub})",
+        )
+    warning = None
+    try:
+        update_mycroft_config({"hana": {"hub_display_name": request.display_name}})
+    except Exception as e:
+        LOG.error("Failed to persist hub_display_name to config: %s", e)
+        warning = "Display name updated in memory but could not be persisted to disk. It will revert on restart."
     config["hub_display_name"] = request.display_name
     LOG.info("Hub display_name updated to: %s", request.display_name)
     return HubIdentityResponse(
         hub_id=_hub_id,
         display_name=request.display_name,
         version=__version__,
+        warning=warning,
     )
 
 

@@ -6,6 +6,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from neon_data_models.models.user import User
+from neon_data_models.models.user.database import PermissionsConfig
 
 _TEST_CONFIG = {
     "mq_default_timeout": 10,
@@ -50,6 +51,21 @@ class TestHanaApp(TestCase):
             self.tokens = response.json()
             self.assertIn("access_token", self.tokens, self.tokens)
         return self.tokens
+
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def _get_admin_tokens(self, send_request):
+        admin_user = User(
+            username="admin", password_hash="password",
+            permissions=PermissionsConfig(hub=30, core=20, diana=20,
+                                         node=20, llm=20))
+        send_request.return_value = {"user": admin_user.model_dump(),
+                                     "success": True}
+        response = self.test_app.post("/auth/login",
+                                      json={"username": "admin",
+                                            "password": "password"})
+        tokens = response.json()
+        self.assertIn("access_token", tokens, tokens)
+        return tokens
 
     def test_app_init(self):
         self.assertEqual(self.test_app.app.title, _TEST_CONFIG["fastapi_title"])
@@ -589,7 +605,7 @@ class TestHanaApp(TestCase):
         from neon_hana.app.dependencies import config
         self.addCleanup(config.pop, "hub_display_name", None)
 
-        token = self._get_tokens()["access_token"]
+        token = self._get_admin_tokens()["access_token"]
         original = self.test_app.get("/hub/identity").json()
 
         # Valid update
@@ -636,11 +652,21 @@ class TestHanaApp(TestCase):
             json={"display_name": "No Auth Hub"})
         self.assertIn(response.status_code, [401, 403], response.text)
 
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_hub_identity_update_insufficient_permissions(self, send_request):
+        # Guest user (hub: 0) should be rejected
+        token = self._get_tokens()["access_token"]
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "Unauthorized Hub"},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 403, response.text)
+
     @patch("neon_hana.app.routers.hub.update_mycroft_config")
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_hub_identity_update_validation(self, send_request,
                                             mock_config_write):
-        token = self._get_tokens()["access_token"]
+        token = self._get_admin_tokens()["access_token"]
 
         # Empty display_name
         response = self.test_app.post(

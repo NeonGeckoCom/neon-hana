@@ -78,6 +78,7 @@ class HubIdentityResponse(BaseModel):
     hub_id: str = Field(description="Stable, human-readable hub identifier (e.g. 'bright-silver-falcon')")
     display_name: str = Field(description="User-configurable display name for this hub")
     version: str = Field(description="HANA software version")
+    warning: Optional[str] = Field(default=None, description="Non-fatal warning, e.g. config persistence failure")
 
     model_config = {
         "json_schema_extra": {
@@ -86,6 +87,7 @@ class HubIdentityResponse(BaseModel):
                     "hub_id": "bright-silver-falcon",
                     "display_name": "Neon Hub (Office)",
                     "version": "0.1.1a21",
+                    "warning": None,
                 }
             ]
         }
