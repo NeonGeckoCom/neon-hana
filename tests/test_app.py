@@ -105,6 +105,31 @@ class TestHanaApp(TestCase):
                          422)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_auth_login_node_auth(self, send_request):
+        admin_user = User(
+            username="admin", password_hash="password",
+            permissions=PermissionsConfig(hub=30, core=20, diana=20,
+                                         node=20, llm=20))
+        send_request.return_value = {"user": admin_user.model_dump(),
+                                     "success": True}
+        response = self.test_app.post("/auth/login",
+                                      json={"username": "admin",
+                                            "password": "password",
+                                            "node_auth": True})
+        self.assertEqual(response.status_code, 200, response.text)
+        token = response.json()["access_token"]
+
+        # Verify token has NODE permissions, not the user's ADMIN
+        perms_response = self.test_app.post(
+            "/auth/permissions",
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(perms_response.status_code, 200, perms_response.text)
+        perms = perms_response.json()
+        self.assertEqual(perms["hub"], -1)
+        self.assertEqual(perms["core"], -1)
+        self.assertEqual(perms["node"], -1)
+
+    @patch("neon_hana.mq_service_api.send_mq_request")
     def test_auth_refresh(self, send_request):
         valid_user = User(username="guest", password_hash="password")
         send_request.return_value = {"user": valid_user.model_dump(),
