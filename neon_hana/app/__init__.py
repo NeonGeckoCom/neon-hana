@@ -1,6 +1,6 @@
 # NEON AI (TM) SOFTWARE, Software Development Kit & Application Development System
 # All trademark and other rights reserved by their respective owners
-# Copyright 2008-2021 Neongecko.com Inc.
+# Copyright 2008-2026 Neongecko.com Inc.
 # BSD-3
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -35,13 +35,14 @@ from neon_hana.app.routers.mq_backend import mq_route
 from neon_hana.app.routers.auth import auth_route
 from neon_hana.app.routers.user import user_route
 from neon_hana.app.routers.util import util_route
+from neon_hana.app.routers.hub import hub_route
 from neon_hana.app.routers.node_server import node_route, socket_api
 from neon_hana.version import __version__
 
 
 def create_app(config: dict):
-    title = config.get('fastapi_title') or "HANA: HTTP API for Neon Applications"
-    summary = config.get('fastapi_summary') or ""
+    title = config.get("fastapi_title") or "HANA: HTTP API for Neon Applications"
+    summary = config.get("fastapi_summary") or ""
     version = __version__
     app = FastAPI(title=title, summary=summary, version=version)
     app.include_router(auth_route)
@@ -53,7 +54,7 @@ def create_app(config: dict):
     app.include_router(node_route)
     app.include_router(user_route)
     app.include_router(bf_route)
-
+    app.include_router(hub_route)
 
     @app.get("/status")
     def get_status():
@@ -61,15 +62,11 @@ def create_app(config: dict):
         Get service status
         """
         if not client_manager.check_health():
-            return Response(status_code=500,
-                            content="Client manager is not healthy")
+            return Response(status_code=500, content="Client manager is not healthy")
         if not mq_connector.check_health():
-            return Response(status_code=500,
-                            content="MQ Connector is not healthy")
+            return Response(status_code=500, content="MQ Connector is not healthy")
         if socket_api and not socket_api.check_health():
-            return Response(status_code=500,
-                            content="Websocket API is not healthy")
+            return Response(status_code=500, content="Websocket API is not healthy")
         return Response(status_code=200, content="Ready")
-
 
     return app

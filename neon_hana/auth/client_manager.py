@@ -240,6 +240,7 @@ class ClientManager:
     def check_auth_request(self, client_id: str, username: str,
                            password: Optional[str] = None,
                            token_name: Optional[str] = None,
+                           node_auth: bool = False,
                            origin_ip: str = "127.0.0.1") -> AuthenticationResponse:
         """
         Authenticate and Authorize a new client connection with the specified
@@ -248,6 +249,9 @@ class ClientManager:
         @param username: Supplied username to authenticate
         @param password: Supplied password to authenticate
         @param token_name: Token name to add to user database
+        @param node_auth: If True, override permissions to AccessRoles.NODE for
+            all fields so issued tokens are scoped as a Node service account
+            (no user-level permissions unless explicitly granted)
         @param origin_ip: Origin IP address of request
         @return: response tokens, permissions, and other metadata
         """
@@ -278,10 +282,16 @@ class ClientManager:
         else:
             user = self._run_async(self._mq_connector.read_user(username, password))
 
+        permissions = user.permissions
+        if node_auth:
+            permissions = PermissionsConfig(
+                **{field: AccessRoles.NODE
+                   for field in PermissionsConfig.model_fields})
+
         create_time = round(time())
         encode_data = {"client_id": client_id,
                        "user_id": user.user_id,
-                       "permissions": user.permissions,
+                       "permissions": permissions,
                        "token_name": token_name,
                        "last_refresh_timestamp": create_time}
         access, refresh, config = self._create_tokens(**encode_data)

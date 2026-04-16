@@ -38,6 +38,11 @@ class AuthenticationRequest(BaseModel):
     password: Optional[str] = None
     token_name: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     client_id: str = Field(default_factory=lambda: str(uuid4()))
+    node_auth: bool = Field(
+        default=False,
+        description="If true, issued tokens are scoped to AccessRoles.NODE "
+                    "regardless of the user's actual permissions. Used by "
+                    "Node devices to obtain limited-privilege tokens.")
 
     model_config = {
         "json_schema_extra": {
@@ -45,6 +50,11 @@ class AuthenticationRequest(BaseModel):
                 "username": "guest",
                 "password": "password",
                 "token_name": "My Client"
+            }, {
+                "username": "alice",
+                "password": "password",
+                "token_name": "Alice's Phone",
+                "node_auth": True,
             }]}}
 
 

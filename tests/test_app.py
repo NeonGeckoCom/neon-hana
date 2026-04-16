@@ -6,6 +6,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from neon_data_models.models.user import User
+from neon_data_models.models.user.database import PermissionsConfig
 
 _TEST_CONFIG = {
     "mq_default_timeout": 10,
@@ -51,6 +52,21 @@ class TestHanaApp(TestCase):
             self.assertIn("access_token", self.tokens, self.tokens)
         return self.tokens
 
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def _get_admin_tokens(self, send_request):
+        admin_user = User(
+            username="admin", password_hash="password",
+            permissions=PermissionsConfig(hub=30, core=20, diana=20,
+                                         node=20, llm=20))
+        send_request.return_value = {"user": admin_user.model_dump(),
+                                     "success": True}
+        response = self.test_app.post("/auth/login",
+                                      json={"username": "admin",
+                                            "password": "password"})
+        tokens = response.json()
+        self.assertIn("access_token", tokens, tokens)
+        return tokens
+
     def test_app_init(self):
         self.assertEqual(self.test_app.app.title, _TEST_CONFIG["fastapi_title"])
         self.assertEqual(self.test_app.app.summary,
@@ -87,6 +103,31 @@ class TestHanaApp(TestCase):
         self.assertEqual(self.test_app.post("/auth/login",
                                             json={"username": None}).status_code,
                          422)
+
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_auth_login_node_auth(self, send_request):
+        admin_user = User(
+            username="admin", password_hash="password",
+            permissions=PermissionsConfig(hub=30, core=20, diana=20,
+                                         node=20, llm=20))
+        send_request.return_value = {"user": admin_user.model_dump(),
+                                     "success": True}
+        response = self.test_app.post("/auth/login",
+                                      json={"username": "admin",
+                                            "password": "password",
+                                            "node_auth": True})
+        self.assertEqual(response.status_code, 200, response.text)
+        token = response.json()["access_token"]
+
+        # Verify token has NODE permissions, not the user's ADMIN
+        perms_response = self.test_app.post(
+            "/auth/permissions",
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(perms_response.status_code, 200, perms_response.text)
+        perms = perms_response.json()
+        self.assertEqual(perms["hub"], -1)
+        self.assertEqual(perms["core"], -1)
+        self.assertEqual(perms["node"], -1)
 
     @patch("neon_hana.mq_service_api.send_mq_request")
     def test_auth_refresh(self, send_request):
@@ -567,5 +608,239 @@ class TestHanaApp(TestCase):
         response = self.test_app.get("/util/headers", headers=test_headers)
         for key, val in test_headers.items():
             self.assertEqual(response.json()[key.lower()], val, response.json())
+
+    def test_hub_identity_get(self):
+        # Public endpoint, no auth required
+        response = self.test_app.get("/hub/identity")
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertTrue(data["hub_id"], "hub_id should be non-empty")
+
+    def test_hub_identity_stable(self):
+        # hub_id must not change across calls
+        id1 = self.test_app.get("/hub/identity").json()["hub_id"]
+        id2 = self.test_app.get("/hub/identity").json()["hub_id"]
+        id3 = self.test_app.get("/hub/identity").json()["hub_id"]
+        self.assertEqual(id1, id2)
+        self.assertEqual(id2, id3)
+
+    @patch("neon_hana.app.routers.hub.update_mycroft_config")
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_hub_identity_update(self, send_request, mock_config_write):
+        from neon_hana.app.dependencies import config
+        self.addCleanup(config.pop, "hub_display_name", None)
+
+        token = self._get_admin_tokens()["access_token"]
+        original = self.test_app.get("/hub/identity").json()
+
+        # Valid update
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "Kitchen Hub"},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertEqual(data["display_name"], "Kitchen Hub")
+        self.assertEqual(data["hub_id"], original["hub_id"])
+        mock_config_write.assert_called()
+
+        # Verify persistence in memory
+        data = self.test_app.get("/hub/identity").json()
+        self.assertEqual(data["display_name"], "Kitchen Hub")
+
+        # Whitespace is stripped from valid input
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "  Living Room Hub  "},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.json()["display_name"], "Living Room Hub")
+
+        # Boundary: 1-char name accepted
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "X"},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+
+        # Boundary: 128-char name accepted
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "x" * 128},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 200, response.text)
+
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_hub_identity_update_auth_required(self, send_request):
+        # Missing auth
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "No Auth Hub"})
+        self.assertIn(response.status_code, [401, 403], response.text)
+
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_hub_identity_update_insufficient_permissions(self, send_request):
+        # Guest user (hub: 0) should be rejected
+        token = self._get_tokens()["access_token"]
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "Unauthorized Hub"},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 403, response.text)
+
+    @patch("neon_hana.app.routers.hub.update_mycroft_config")
+    @patch("neon_hana.mq_service_api.send_mq_request")
+    def test_hub_identity_update_validation(self, send_request,
+                                            mock_config_write):
+        token = self._get_admin_tokens()["access_token"]
+
+        # Empty display_name
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": ""},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
+
+        # Whitespace-only display_name
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "   "},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
+
+        # Too long display_name
+        response = self.test_app.post(
+            "/hub/identity",
+            json={"display_name": "x" * 129},
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
+
+        # Missing body
+        response = self.test_app.post(
+            "/hub/identity",
+            headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 422, response.text)
+
+        # Config was never written for invalid requests
+        mock_config_write.assert_not_called()
+
+    @patch("neon_hana.app.routers.hub._read_neon_yaml")
+    def test_hub_config_with_explicit_config(self, mock_read):
+        mock_read.return_value = {
+            "tts": {"module": "ovos-tts-plugin-mimic"},
+            "stt": {"module": "ovos-stt-plugin-vosk"},
+        }
+        response = self.test_app.get("/hub/config")
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertEqual(data["tts"]["module"], "ovos-tts-plugin-mimic")
+        self.assertEqual(data["stt"]["module"], "ovos-stt-plugin-vosk")
+        self.assertEqual(data["llm"]["persona_name"], "Neon Classic")
+
+    @patch("neon_hana.app.routers.hub._read_neon_yaml")
+    def test_hub_config_defaults(self, mock_read):
+        # neon.yaml exists but has no tts/stt keys — returns defaults
+        mock_read.return_value = {"lang": "en-us"}
+        response = self.test_app.get("/hub/config")
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertEqual(data["tts"]["module"], "neon-tts-plugin-coqui")
+        self.assertEqual(data["stt"]["module"], "neon-stt-plugin-nemo")
+
+    @patch("neon_hana.app.routers.hub._read_neon_yaml")
+    def test_hub_config_no_neon_yaml(self, mock_read):
+        # neon.yaml doesn't exist (non-Hub deployment)
+        mock_read.return_value = None
+        response = self.test_app.get("/hub/config")
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertIsNone(data["tts"])
+        self.assertIsNone(data["stt"])
+        self.assertEqual(data["llm"]["persona_name"], "Neon Classic")
+
+    @patch("neon_hana.app.routers.hub._read_neon_yaml")
+    def test_hub_config_key_without_module(self, mock_read):
+        # tts/stt keys exist but module sub-key is absent — returns defaults
+        mock_read.return_value = {"tts": {"lang": "en-us"}, "stt": {"lang": "en-us"}}
+        response = self.test_app.get("/hub/config")
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertEqual(data["tts"]["module"], "neon-tts-plugin-coqui")
+        self.assertEqual(data["stt"]["module"], "neon-stt-plugin-nemo")
+
+    @patch("neon_hana.app.routers.hub._read_neon_yaml")
+    def test_hub_config_none_values(self, mock_read):
+        # tts/stt keys exist but are explicitly None — returns defaults
+        mock_read.return_value = {"tts": None, "stt": None}
+        response = self.test_app.get("/hub/config")
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertEqual(data["tts"]["module"], "neon-tts-plugin-coqui")
+        self.assertEqual(data["stt"]["module"], "neon-stt-plugin-nemo")
+
+    def test_hub_config_no_auth_required(self):
+        # Public discovery endpoint — must not require authentication
+        response = self.test_app.get("/hub/config")
+        self.assertNotIn(response.status_code, [401, 403],
+                         "GET /hub/config should not require authentication")
+
+    def test_read_neon_yaml_permission_error(self):
+        import os
+        from neon_hana.app.routers.hub import _read_neon_yaml
+        with patch.dict(os.environ, {"XDG_CONFIG_HOME": "/tmp/_neon_test_perm"}):
+            with patch("builtins.open",
+                       side_effect=PermissionError("Permission denied")):
+                result = _read_neon_yaml()
+        self.assertIsNone(result)
+
+    def test_read_neon_yaml_is_directory(self):
+        import tempfile, os
+        from neon_hana.app.routers.hub import _read_neon_yaml
+        with tempfile.TemporaryDirectory() as tmpdir:
+            neon_dir = os.path.join(tmpdir, "neon")
+            os.makedirs(neon_dir)
+            # Create neon.yaml as a directory instead of a file
+            os.makedirs(os.path.join(neon_dir, "neon.yaml"))
+            with patch.dict(os.environ, {"XDG_CONFIG_HOME": tmpdir}):
+                result = _read_neon_yaml()
+            self.assertIsNone(result)
+
+    def test_read_neon_yaml_malformed_yaml(self):
+        import tempfile, os
+        from neon_hana.app.routers.hub import _read_neon_yaml
+        with tempfile.TemporaryDirectory() as tmpdir:
+            neon_dir = os.path.join(tmpdir, "neon")
+            os.makedirs(neon_dir)
+            yaml_path = os.path.join(neon_dir, "neon.yaml")
+            with open(yaml_path, "w") as f:
+                f.write("tts: [invalid\n  bad: yaml:")
+            with patch.dict(os.environ, {"XDG_CONFIG_HOME": tmpdir}):
+                result = _read_neon_yaml()
+            self.assertIsNone(result)
+
+    def test_read_neon_yaml_non_dict(self):
+        import tempfile, os
+        from neon_hana.app.routers.hub import _read_neon_yaml
+        with tempfile.TemporaryDirectory() as tmpdir:
+            neon_dir = os.path.join(tmpdir, "neon")
+            os.makedirs(neon_dir)
+            yaml_path = os.path.join(neon_dir, "neon.yaml")
+            with open(yaml_path, "w") as f:
+                f.write("- item1\n- item2\n")
+            with patch.dict(os.environ, {"XDG_CONFIG_HOME": tmpdir}):
+                result = _read_neon_yaml()
+            self.assertIsNone(result)
+
+    def test_read_neon_yaml_empty_file(self):
+        import tempfile, os
+        from neon_hana.app.routers.hub import _read_neon_yaml
+        with tempfile.TemporaryDirectory() as tmpdir:
+            neon_dir = os.path.join(tmpdir, "neon")
+            os.makedirs(neon_dir)
+            yaml_path = os.path.join(neon_dir, "neon.yaml")
+            with open(yaml_path, "w") as f:
+                f.write("")
+            with patch.dict(os.environ, {"XDG_CONFIG_HOME": tmpdir}):
+                result = _read_neon_yaml()
+            self.assertEqual(result, {})
 
 # TODO: Define node endpoint tests
