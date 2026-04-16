@@ -249,6 +249,9 @@ class ClientManager:
         @param username: Supplied username to authenticate
         @param password: Supplied password to authenticate
         @param token_name: Token name to add to user database
+        @param node_auth: If True, override permissions to AccessRoles.NODE for
+            all fields so issued tokens are scoped as a Node service account
+            (no user-level permissions unless explicitly granted)
         @param origin_ip: Origin IP address of request
         @return: response tokens, permissions, and other metadata
         """
