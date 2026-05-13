@@ -9,3 +9,4 @@ jobs:
     secrets: inherit
     with:
       include_semver: False
+      platforms: linux/amd64,linux/arm64
