@@ -42,6 +42,9 @@ from neon_data_models.models.api.node_v1 import (NodeAudioInput, NodeGetStt,
                                                  NodeAudioInputResponse,
                                                  NodeGetSttResponse,
                                                  NodeGetTtsResponse,
+                                                 NodeHello,
+                                                 NodeInvokeNative,
+                                                 NodeInvokeNativeResponse,
                                                  CoreWWDetected,
                                                  CoreIntentFailure,
                                                  CoreErrorResponse,
@@ -110,9 +113,11 @@ async def node_v1_stream_endpoint(websocket: WebSocket, token: str):
 
 @node_route.get("/v1/doc")
 async def node_v1_doc(_: Optional[Union[NodeAudioInput, NodeGetStt,
-                                        NodeGetTts]]) -> \
+                                        NodeGetTts, NodeHello,
+                                        NodeInvokeNativeResponse]]) -> \
         Optional[Union[NodeKlatResponse, NodeAudioInputResponse,
                        NodeGetSttResponse, NodeGetTtsResponse,
+                       NodeInvokeNative,
                        CoreWWDetected, CoreIntentFailure, CoreErrorResponse,
                        CoreClearData, CoreAlertExpired]]:
     """

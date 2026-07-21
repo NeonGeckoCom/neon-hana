@@ -30,8 +30,11 @@ from queue import Queue
 from time import time, sleep
 from typing import Optional
 from fastapi import WebSocket
+from neon_data_models.models.api.node_v1 import NodeHello
 from neon_iris.client import NeonAIClient
+from neon_utils.socket_utils import b64_to_dict
 from ovos_bus_client.message import Message
+from pydantic import ValidationError
 from threading import RLock
 from ovos_utils.log import LOG
 
@@ -155,6 +158,14 @@ class MQWebsocketAPI(NeonAIClient):
                            "mq": {"routing_key": self.uid,
                                   "message_id": self.connection.
                                   create_unique_id()}}
+        with self._session_lock:
+            node_context = self._sessions.get(session_id, {}).get("node")
+        if node_context:
+            # Stamp the cached `node.hello` snapshot onto the outbound message
+            # so skills read capabilities synchronously from `context.node`
+            default_context["node"] = {
+                **node_context,
+                "site_id": self.get_session(session_id).get("site_id")}
         return {**message.context, **default_context}
 
     def _update_session_data(self, message: Message):
@@ -181,6 +192,36 @@ class MQWebsocketAPI(NeonAIClient):
                           {"session": session})
         run(self.send_to_client(message))
 
+    def _handle_node_hello(self, data: dict, session_id: str):
+        """
+        Cache the Node identity and capabilities advertised in a `node.hello`
+        message so outbound bus messages from this session can carry them in
+        `context.node`.
+        @param data: Decoded `node.hello` message from the client WebSocket
+        @param session_id: Session ID associated with the client connection
+        """
+        try:
+            hello = NodeHello(**{"context": {}, **data})
+        except ValidationError as e:
+            LOG.warning(f"Ignoring invalid node.hello from session "
+                        f"{session_id}: {e}")
+            return
+        if hello.data.node_id != session_id:
+            # The token-derived session_id is authoritative for identity; a
+            # client cannot claim another Node's ID via its hello payload
+            LOG.warning(f"node.hello node_id ({hello.data.node_id}) does not "
+                        f"match session ({session_id}); using session identity")
+        # model_dump() serializes capability keys back to wire strings; the
+        # validated model keys them by NodeNativeAction, which is not
+        # JSON-serializable in bus context
+        hello_data = hello.data.model_dump()
+        with self._session_lock:
+            if session_id in self._sessions:
+                self._sessions[session_id]["node"] = {
+                    "node_id": session_id,
+                    "node_name": hello_data["node_name"],
+                    "capabilities": hello_data["capabilities"]}
+
     def handle_client_input(self, data: dict, session_id: str):
         """
         Handle some client input data.
@@ -190,11 +231,49 @@ class MQWebsocketAPI(NeonAIClient):
         # Handle `Message.serialize` data sent over WS in addition to proper
         # dict representations
         data['msg_type'] = data.pop("type", data.get("msg_type"))
+        if data['msg_type'] == "node.hello":
+            self._handle_node_hello(data, session_id)
         message = Message(**data)
         message.context = self._get_message_context(message, session_id)
         message.context["session"] = self.get_session(session_id)
         # Send raw message, skipping any validation by iris
         self._send_message(message)
+
+    def handle_neon_response(self, channel, method, properties, body):
+        """
+        Dispatch `node.*` messages that `NeonAIClient` does not know about,
+        delegating everything else to its dispatcher unchanged.
+        """
+        # Peek at the msg_type; iris deserializes again on delegation. That
+        # cost is accepted to avoid duplicating its dispatch/timing logic here.
+        try:
+            response = b64_to_dict(body)
+        except Exception as e:
+            LOG.error(f"Failed to peek at MQ message: {e}")
+            response = None
+        if response and response.get("msg_type") == "node.invoke_native":
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+            message = Message(response.get("msg_type"), response.get("data"),
+                              response.get("context"))
+            self.handle_node_invoke_native(message)
+        else:
+            super().handle_neon_response(channel, method, properties, body)
+
+    def handle_node_invoke_native(self, message: Message):
+        """
+        Forward a `node.invoke_native` request from a skill to the target Node.
+        The message is relayed as-is: the Node re-validates the requested
+        action and reports `not_supported` itself, which reaches the skill
+        faster than a hub-side drop would (drop = skill waits out its timeout).
+        @param message: `node.invoke_native` message from the bus
+        """
+        try:
+            run(self.send_to_client(message))
+        except KeyError:
+            LOG.error(f"node.invoke_native for unknown session: "
+                      f"{message.context.get('session', {}).get('session_id')}")
+        except Exception as e:
+            LOG.exception(e)
 
     def handle_klat_response(self, message: Message):
         """
