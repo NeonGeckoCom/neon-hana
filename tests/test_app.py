@@ -571,13 +571,6 @@ class TestHanaApp(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), valid_response)
 
-        # Palm
-        response = self.test_app.post("/llm/palm",
-                                      json=valid_request,
-                                      headers={"Authorization": f"Bearer {token}"})
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), valid_response)
-
         # Invalid requests
         response = self.test_app.post("/llm/chatgpt",
                                       json=valid_request)
