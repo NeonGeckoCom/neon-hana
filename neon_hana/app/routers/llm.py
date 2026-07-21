@@ -52,7 +52,3 @@ async def llm_ask_gemini(query: LLMRequest) -> LLMResponse:
 async def llm_ask_claude(query: LLMRequest) -> LLMResponse:
     return await mq_connector.query_llm("claude", **dict(query))
 
-
-@llm_route.post("/palm")
-async def llm_ask_palm(query: LLMRequest) -> LLMResponse:
-    return await mq_connector.query_llm("palm2", **dict(query))
