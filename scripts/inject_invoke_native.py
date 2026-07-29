@@ -33,6 +33,11 @@ try:
 except ImportError:
     sys.exit("pika is required: pip install pika")
 
+try:
+    from neon_utils.socket_utils import dict_to_b64
+except ImportError:
+    sys.exit("neon-utils is required: pip install neon-utils")
+
 VHOST = "/neon_chat_api"
 
 VALID_ACTIONS = (
@@ -73,11 +78,14 @@ def publish(message: dict, queue: str, host: str, port: int,
                                   credentials=credentials))
     try:
         channel = connection.channel()
+        # The MQ transport carries base64'd JSON, not raw JSON -- HANA
+        # reads it back with b64_to_dict. Publishing plain JSON fails
+        # with "Incorrect padding" and the message is dropped.
         channel.basic_publish(
             exchange="",
             routing_key=queue,
-            body=json.dumps(message).encode(),
-            properties=pika.BasicProperties(content_type="application/json"),
+            body=dict_to_b64(message),
+            properties=pika.BasicProperties(content_type="application/b64"),
         )
     finally:
         connection.close()
