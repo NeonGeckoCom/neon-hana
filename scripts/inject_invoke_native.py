@@ -38,16 +38,15 @@ try:
 except ImportError:
     sys.exit("neon-utils is required: pip install neon-utils")
 
+try:
+    from neon_data_models.enum import NodeNativeAction
+    from neon_data_models.models.api.node_v1 import NodeInvokeNative
+except ImportError:
+    sys.exit("neon-data-models is required: pip install neon-data-models")
+
 VHOST = "/neon_chat_api"
 
-VALID_ACTIONS = (
-    "launch_camera_app",
-    "launch_voice_recorder_app",
-    "launch_reminders_app",
-    "launch_clock_app",
-    "launch_sms_app",
-    "launch_email_app",
-)
+VALID_ACTIONS = tuple(a.value for a in NodeNativeAction)
 
 
 def build_message(session_id: str, action: str, params: dict) -> dict:
@@ -59,7 +58,7 @@ def build_message(session_id: str, action: str, params: dict) -> dict:
     data = {"action": action}
     if params:
         data["params"] = params
-    return {
+    message = {
         "msg_type": "node.invoke_native",
         "data": data,
         "context": {
@@ -68,6 +67,10 @@ def build_message(session_id: str, action: str, params: dict) -> dict:
             "mq": {"message_id": str(uuid4())},
         },
     }
+    # Validate only -- the lean dict stays the wire payload; model_dump()
+    # would pad context with null fields a real skill never sends.
+    NodeInvokeNative(**message)
+    return message
 
 
 def publish(message: dict, queue: str, host: str, port: int,
