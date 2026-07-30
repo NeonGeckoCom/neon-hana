@@ -177,6 +177,37 @@ class TestInvokeNativeDispatch(unittest.TestCase):
         api.handle_node_invoke_native(message)
 
 
+class TestUserProfileNullPruning(unittest.TestCase):
+    NULL_LOCATION_PROFILE = {
+        "user": {"username": "tester", "first_name": None},
+        "location": {"lat": None, "lng": None, "city": None, "state": None,
+                     "country": None, "tz": None, "utc": None},
+        "units": {"time": 12}}
+
+    def test_get_user_config_drops_null_values(self):
+        api = _make_api()
+        _seed_session(api)
+        api._sessions[TEST_SESSION]["user"] = dict(self.NULL_LOCATION_PROFILE)
+        config = api.get_user_config(TEST_SESSION)
+        # Explicit None keys would mask core-configured defaults downstream;
+        # absent keys inherit them
+        self.assertEqual(config["location"], {})
+        self.assertEqual(config["user"], {"username": "tester"})
+        self.assertEqual(config["units"], {"time": 12})
+        # The cached session profile is not mutated
+        self.assertIsNone(
+            api._sessions[TEST_SESSION]["user"]["location"]["lat"])
+
+    def test_message_context_carries_pruned_profile(self):
+        api = _make_api()
+        _seed_session(api)
+        api._sessions[TEST_SESSION]["user"] = dict(self.NULL_LOCATION_PROFILE)
+        context = api._get_message_context(
+            Message("neon.audio_input", {}, {}), TEST_SESSION)
+        self.assertEqual(context["user_profiles"][0]["location"], {})
+        self.assertEqual(context["username"], "tester")
+
+
 class TestInvokeNativeResponsePassthrough(unittest.TestCase):
     def test_response_forwarded_to_bus(self):
         api = _make_api()

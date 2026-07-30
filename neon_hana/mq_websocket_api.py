@@ -45,6 +45,26 @@ class ClientNotKnown(RuntimeError):
     """
 
 
+def _drop_null_values(profile: dict) -> dict:
+    """
+    Return a copy of `profile` with None-valued keys removed recursively.
+    Downstream profile merging (`neon_utils.configuration_utils`) only fills
+    defaults for ABSENT keys, so a key explicitly present as None can never
+    inherit a default. Sending a skeleton like `location: {"lat": None, ...}`
+    permanently masks the core's configured location and breaks skills that
+    require one (e.g. Wolfram Alpha 422s on `lat="None"`).
+    @param profile: dict user profile to filter
+    @return: profile copy without None-valued keys
+    """
+    filtered = {}
+    for key, value in profile.items():
+        if value is None:
+            continue
+        filtered[key] = _drop_null_values(value) if isinstance(value, dict) \
+            else value
+    return filtered
+
+
 class MQWebsocketAPI(NeonAIClient):
     def __init__(self, config: dict):
         """
@@ -138,7 +158,7 @@ class MQWebsocketAPI(NeonAIClient):
         with self._session_lock:
             config = dict(self._sessions.get(session_id, {}).get("user") or
                           self.user_config)
-        return config
+        return _drop_null_values(config)
 
     def _get_message_context(self, message: Message, session_id: str) -> dict:
         """
