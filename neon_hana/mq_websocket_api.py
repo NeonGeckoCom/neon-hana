@@ -205,6 +205,7 @@ class MQWebsocketAPI(NeonAIClient):
         except ValidationError as e:
             LOG.warning(f"Ignoring invalid node.hello from session "
                         f"{session_id}: {e}")
+            self._send_hello_response(session_id, error=str(e))
             return
         if hello.data.node_id != session_id:
             # The token-derived session_id is authoritative for identity; a
@@ -215,12 +216,34 @@ class MQWebsocketAPI(NeonAIClient):
         # validated model keys them by NodeNativeAction, which is not
         # JSON-serializable in bus context
         hello_data = hello.data.model_dump()
+        node = {"node_id": session_id,
+                "node_name": hello_data["node_name"],
+                "capabilities": hello_data["capabilities"]}
         with self._session_lock:
             if session_id in self._sessions:
-                self._sessions[session_id]["node"] = {
-                    "node_id": session_id,
-                    "node_name": hello_data["node_name"],
-                    "capabilities": hello_data["capabilities"]}
+                self._sessions[session_id]["node"] = node
+        self._send_hello_response(session_id, node=node)
+
+    def _send_hello_response(self, session_id: str, node: dict = None,
+                             error: str = None):
+        """
+        Acknowledge a `node.hello` with the hub-normalized snapshot, or the
+        validation error that made the hub drop it. A hub without this
+        handler sends nothing, which lets Nodes flag an outdated hub.
+        @param session_id: Session ID to acknowledge
+        @param node: normalized node snapshot as cached (success path)
+        @param error: validation error message (rejection path)
+        """
+        data = {"status": "error", "error": {"message": error}} if error \
+            else {"status": "success", "node": node}
+        try:
+            message = Message("node.hello.response", data,
+                              {"session": self.get_session(session_id)})
+            run(self.send_to_client(message))
+        except Exception as e:
+            # Best-effort: a failed ack must not take down hello handling
+            LOG.error(f"Failed to send node.hello.response to "
+                      f"{session_id}: {e}")
 
     def handle_client_input(self, data: dict, session_id: str):
         """

@@ -110,6 +110,47 @@ class TestNodeHello(unittest.TestCase):
         self.assertEqual(api._sessions[TEST_SESSION]["node"]["node_name"],
                          "Den Phone")
 
+    @staticmethod
+    def _hello_acks(socket) -> list:
+        return [m for m in
+                (json.loads(c.args[0])
+                 for c in socket.send_text.call_args_list)
+                if m["type"] == "node.hello.response"]
+
+    def test_hello_acknowledged_with_normalized_snapshot(self):
+        api = _make_api()
+        socket = _seed_session(api)
+        api.handle_client_input(dict(VALID_HELLO), TEST_SESSION)
+        ack = self._hello_acks(socket)[0]
+        self.assertEqual(ack["data"]["status"], "success")
+        self.assertEqual(ack["data"]["node"]["node_id"], TEST_SESSION)
+        self.assertEqual(ack["data"]["node"]["node_name"], "Kitchen Phone")
+        self.assertEqual(ack["data"]["node"]["capabilities"],
+                         {"launch_camera_app": True, "launch_sms_app": False})
+
+    def test_hello_ack_echoes_session_identity_not_claimed_id(self):
+        # The ack reports what context.node will actually carry, so a Node
+        # that claimed a different node_id learns the hub overrode it
+        api = _make_api()
+        socket = _seed_session(api)
+        hello = {"msg_type": "node.hello",
+                 "data": {**VALID_HELLO["data"], "node_id": "someone-else"}}
+        api.handle_client_input(hello, TEST_SESSION)
+        ack = self._hello_acks(socket)[0]
+        self.assertEqual(ack["data"]["node"]["node_id"], TEST_SESSION)
+
+    def test_rejected_hello_gets_error_response(self):
+        # A rejection is otherwise invisible to the Node -- it only shows up
+        # later as capability gating silently doing nothing
+        api = _make_api()
+        socket = _seed_session(api)
+        api.handle_client_input({"msg_type": "node.hello", "data": {}},
+                                TEST_SESSION)
+        ack = self._hello_acks(socket)[0]
+        self.assertEqual(ack["data"]["status"], "error")
+        self.assertIn("node_id", ack["data"]["error"]["message"])
+        self.assertNotIn("node", ack["data"])
+
 
 class TestNodeContextEnrichment(unittest.TestCase):
     def test_context_includes_node_after_hello(self):
