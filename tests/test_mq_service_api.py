@@ -24,9 +24,27 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import json
 import unittest
+
+from neon_hana.mq_service_api import APIError, AsyncMqServiceManager, MQServiceManager
 
 
 class TestMqServiceApi(unittest.TestCase):
-    from neon_hana.mq_service_api import AsyncMqServiceManager
-    # TODO
+    def test_validate_api_proxy_response_missing_content_is_json_serializable(self):
+        """Missing MQ content must raise APIError with JSON-serializable detail."""
+        query_params = {"service": "open_weather_map", "lat": 47.6, "lon": -122.3}
+        for cls in (AsyncMqServiceManager, MQServiceManager):
+            with self.subTest(cls=cls.__name__):
+                with self.assertRaises(APIError) as ctx:
+                    cls._validate_api_proxy_response({}, query_params)
+                exc = ctx.exception
+                self.assertEqual(exc.status_code, 500)
+                # FastAPI's HTTPException handler json.dumps()s detail; this is
+                # the failure mode that previously surfaced as
+                # "ValueError: Circular reference detected".
+                json.dumps({"detail": exc.detail})
+                self.assertEqual(exc.detail["error"],
+                                 "No response content was received")
+                self.assertEqual(exc.detail["raw_query"], query_params)
+                self.assertNotIn("content", exc.detail["raw_response"])

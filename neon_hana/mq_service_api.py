@@ -87,10 +87,15 @@ class AsyncMqServiceManager:
     
     @staticmethod
     def _validate_api_proxy_response(response: dict, query_params: dict):
-        response.setdefault('content',
-                            {"error": "No response content was received",
-                             "raw_response": response,
-                             "raw_query": query_params})
+        if "content" not in response:
+            # Shallow-copy keys so raw_response does not nest `response` into
+            # itself; a circular structure cannot be JSON-serialized by
+            # FastAPI's HTTPException handler.
+            response["content"] = {
+                "error": "No response content was received",
+                "raw_response": dict(response),
+                "raw_query": query_params,
+            }
         response.setdefault('status_code', 500)
         if response['status_code'] == 200:
             try:
@@ -435,10 +440,15 @@ class MQServiceManager:
     
     @staticmethod
     def _validate_api_proxy_response(response: dict, query_params: dict):
-        response.setdefault('content',
-                            {"error": "No response content was received",
-                             "raw_response": response,
-                             "raw_query": query_params})
+        if "content" not in response:
+            # Shallow-copy keys so raw_response does not nest `response` into
+            # itself; a circular structure cannot be JSON-serialized by
+            # FastAPI's HTTPException handler.
+            response["content"] = {
+                "error": "No response content was received",
+                "raw_response": dict(response),
+                "raw_query": query_params,
+            }
         response.setdefault('status_code', 500)
         if response['status_code'] == 200:
             try:
