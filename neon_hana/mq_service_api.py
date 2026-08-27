@@ -28,12 +28,15 @@ import json
 import warnings
 
 from time import time
-from typing import Optional, Dict, Any, List, Tuple, Union
+from typing import Optional, Dict, Any, List, Tuple, Union, Callable
 from uuid import uuid4
 from fastapi import HTTPException
 from pydantic import ValidationError
 from neon_data_models.models.api.llm import LLMResponse
-from neon_data_models.models.api.mq.brainforge import LLMGetPersonasResponse
+from neon_data_models.models.api.mq.brainforge import (
+    LLMGetCompletionResponse,
+    LLMGetPersonasResponse,
+)
 from neon_data_models.models.api.http.brainforge import LLMGetModelsHttpResponse, LLMGetPersonasHttpResponse, \
     LLMGetInferenceHttpRequest
 from neon_data_models.models.api import CreateUserRequest, ReadUserRequest, \
@@ -378,6 +381,34 @@ class AsyncMqServiceManager:
             raise APIError(
                     status_code=500,
                     detail=f"Invalid response from Brainforge: {response}") from e
+
+    async def get_brainforge_model_completion(
+        self,
+        completion_kwargs: dict,
+        user_id: str,
+        stream_callback: Optional[Callable[[dict], None]] = None,
+    ) -> dict:
+        request_data = {
+            "user_id": user_id,
+            "model": completion_kwargs["model"],
+            "completion_kwargs": completion_kwargs,
+        }
+        response = await self._send_mq_request_async(
+            "/brainforge",
+            request_data,
+            "brainforge_get_completion",
+            timeout=300,
+            stream_callback=stream_callback,
+        )
+        if response.get("error"):
+            raise APIError(status_code=500, detail=str(response["error"]))
+        try:
+            return LLMGetCompletionResponse(**response).openai_response
+        except ValidationError as e:
+            raise APIError(
+                status_code=500,
+                detail=f"Invalid response from Brainforge: {response}",
+            ) from e
 
     async def get_skills_api(self):
         request_data = {"msg_type": "neon.skill_api.get",
