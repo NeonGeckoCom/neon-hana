@@ -27,6 +27,7 @@
 import json
 import unittest
 
+from asyncio import run, sleep
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from neon_utils.socket_utils import dict_to_b64
@@ -150,6 +151,35 @@ class TestNodeHello(unittest.TestCase):
         self.assertEqual(ack["data"]["status"], "error")
         self.assertIn("node_id", ack["data"]["error"]["message"])
         self.assertNotIn("node", ack["data"])
+
+    def test_hello_acknowledged_from_running_event_loop(self):
+        # The /node/v1 route calls handle_client_input from inside the
+        # server's event loop, where asyncio.run() raises
+        api = _make_api()
+        socket = _seed_session(api)
+
+        async def receive_hello():
+            api.handle_client_input(dict(VALID_HELLO), TEST_SESSION)
+            await sleep(0)
+
+        run(receive_hello())
+        self.assertEqual(len(self._hello_acks(socket)), 1)
+
+    def test_failed_ack_from_running_event_loop_is_logged(self):
+        api = _make_api()
+        socket = _seed_session(api)
+        socket.send_text.side_effect = RuntimeError("socket closed")
+
+        async def receive_hello():
+            api.handle_client_input(dict(VALID_HELLO), TEST_SESSION)
+            await sleep(0)
+
+        with patch("neon_hana.mq_websocket_api.LOG") as log:
+            run(receive_hello())
+        self.assertIn("socket closed", log.error.call_args.args[0])
+        self.assertEqual(api._pending_sends, set())
+        # A failed ack does not undo the cached hello
+        self.assertIn("node", api._sessions[TEST_SESSION])
 
 
 class TestNodeContextEnrichment(unittest.TestCase):
