@@ -24,7 +24,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from asyncio import run, get_event_loop
+from asyncio import Task, run, get_event_loop, get_running_loop
 from os import makedirs
 from queue import Queue
 from time import time, sleep
@@ -57,6 +57,8 @@ class MQWebsocketAPI(NeonAIClient):
         self._sessions = dict()
         self._session_lock = RLock()
         self._client = "neon_node_websocket"
+        # The event loop only weakly references tasks; hold them until done
+        self._pending_sends = set()
 
     def check_health(self) -> bool:
         """
@@ -239,11 +241,32 @@ class MQWebsocketAPI(NeonAIClient):
         try:
             message = Message("node.hello.response", data,
                               {"session": self.get_session(session_id)})
-            run(self.send_to_client(message))
+            self._send_from_sync_context(message)
         except Exception as e:
             # Best-effort: a failed ack must not take down hello handling
             LOG.error(f"Failed to send node.hello.response to "
                       f"{session_id}: {e}")
+
+    def _send_from_sync_context(self, message: Message):
+        """
+        Send a message to a client from synchronous code that may be running
+        on the server's event loop (the `/node/v1` receive loop), where
+        `asyncio.run()` raises, or on a worker thread with no loop.
+        @param message: Message to send to the client
+        """
+        try:
+            loop = get_running_loop()
+        except RuntimeError:
+            run(self.send_to_client(message))
+            return
+        task = loop.create_task(self.send_to_client(message))
+        self._pending_sends.add(task)
+        task.add_done_callback(self._on_send_done)
+
+    def _on_send_done(self, task: Task):
+        self._pending_sends.discard(task)
+        if not task.cancelled() and task.exception():
+            LOG.error(f"Failed to send to client: {task.exception()}")
 
     def handle_client_input(self, data: dict, session_id: str):
         """
